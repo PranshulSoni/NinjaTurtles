@@ -1,32 +1,45 @@
 // server.js
-// Backend for Food Ordering Platform (Team Ninja Turtles)
+// Complete Full-Stack Backend for Food Ordering Platform (Team Ninja Turtles)
+// Contains: Express Server, MongoDB Models, Socket.io Real-Time, REST APIs & Static Frontend Serving
 
 const express = require('express');
 const http = require('http');
+const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 
+// 1. Initialize Express App & HTTP Server
 const app = express();
 const server = http.createServer(app);
 
-// Middlewares
+// 2. Initialize Socket.io for Real-time WebSockets
+const io = new Server(server, {
+  cors: { origin: '*' },
+});
+
+// 3. Middlewares
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'))); // Serves index.html & app.js
 
-// Connect to MongoDB
+// 4. Connect to MongoDB Database
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/food_delivery_db';
 mongoose
   .connect(MONGO_URI)
-  .then(() => {
+  .then(async () => {
     console.log('✅ Connected to MongoDB successfully!');
+    await seedInitialDataIfEmpty();
   })
   .catch((err) => {
     console.error('❌ MongoDB Connection Error:', err.message);
   });
 
-// Schemas & Models
+// ==========================================
+// 5. MONGOOSE DATABASE SCHEMAS & MODELS
+// ==========================================
+
+// Restaurant Schema
 const restaurantSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -41,6 +54,7 @@ const restaurantSchema = new mongoose.Schema(
 );
 const Restaurant = mongoose.model('Restaurant', restaurantSchema);
 
+// Food Item / Dish Schema
 const foodItemSchema = new mongoose.Schema(
   {
     restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
@@ -56,6 +70,121 @@ const foodItemSchema = new mongoose.Schema(
 );
 const FoodItem = mongoose.model('FoodItem', foodItemSchema);
 
+// Order Schema
+const orderSchema = new mongoose.Schema(
+  {
+    customerName: { type: String, required: true },
+    customerPhone: { type: String, required: true },
+    deliveryAddress: { type: String, required: true },
+    restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+    restaurantName: { type: String, required: true },
+    items: [
+      {
+        foodItemId: mongoose.Schema.Types.ObjectId,
+        name: String,
+        price: Number,
+        quantity: Number,
+      },
+    ],
+    totalAmount: { type: Number, required: true },
+    status: {
+      type: String,
+      enum: ['Order Placed', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'],
+      default: 'Order Placed',
+    },
+  },
+  { timestamps: true }
+);
+const Order = mongoose.model('Order', orderSchema);
+
+
+// ==========================================
+// 8. AUTO-SEED DATABASE IF EMPTY
+// ==========================================
+// 8. AUTO-SEED DATABASE IF EMPTY
+// ==========================================
+async function seedInitialDataIfEmpty() {
+  const count = await Restaurant.countDocuments();
+  if (count > 0) return; // Already has data
+
+  console.log('🌱 Seeding sample restaurant data into MongoDB...');
+  const restaurants = [
+    {
+      name: 'Burger King',
+      cuisine: 'Burgers, Fast Food, Beverages',
+      rating: 4.3,
+      deliveryTime: '25-30 mins',
+      priceForTwo: 350,
+      address: 'Alpha One Mall, Vastrapur, Ahmedabad',
+      imageUrl: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=600',
+    },
+    {
+      name: "La Pino'z Pizza",
+      cuisine: 'Pizza, Italian, Fast Food',
+      rating: 4.4,
+      deliveryTime: '30-35 mins',
+      priceForTwo: 450,
+      address: 'Sindhu Bhavan Road, Bodakdev, Ahmedabad',
+      imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600',
+    },
+    {
+      name: 'Biryani By Kilo',
+      cuisine: 'Biryani, Mughlai, Kebabs',
+      rating: 4.5,
+      deliveryTime: '35-45 mins',
+      priceForTwo: 600,
+      address: 'SG Highway, Gota, Ahmedabad',
+      imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600',
+    },
+    {
+      name: "Haldiram's Sweets & Snacks",
+      cuisine: 'North Indian, Street Food, Mithai',
+      rating: 4.6,
+      deliveryTime: '20-30 mins',
+      priceForTwo: 300,
+      address: 'Drive-In Road, Memnagar, Ahmedabad',
+      imageUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600',
+    },
+  ];
+
+  for (const r of restaurants) {
+    const createdRest = await Restaurant.create(r);
+    // Add sample food items
+    await FoodItem.create([
+      {
+        restaurantId: createdRest._id,
+        name: `${createdRest.name} Special Dish 1`,
+        description: 'Chef signature recipe prepared with fresh ingredients and authentic spices.',
+        price: 199,
+        category: 'Main Course',
+        isVeg: true,
+        imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
+      },
+      {
+        restaurantId: createdRest._id,
+        name: `${createdRest.name} Crispy Starter`,
+        description: 'Golden crispy delight served with delicious dipping sauce.',
+        price: 129,
+        category: 'Starters',
+        isVeg: true,
+        imageUrl: 'https://images.unsplash.com/photo-1576107232684-1279f3908594?w=500',
+      },
+      {
+        restaurantId: createdRest._id,
+        name: `${createdRest.name} Chilled Beverage`,
+        description: 'Refreshing cold beverage made to complement your meal.',
+        price: 89,
+        category: 'Beverages',
+        isVeg: true,
+        imageUrl: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=500',
+      },
+    ]);
+  }
+  console.log('✅ Sample data seeded successfully!');
+}
+
+
+// 9. Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Food Delivery Server running on http://localhost:${PORT}`);
