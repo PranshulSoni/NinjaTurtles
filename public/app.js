@@ -7,10 +7,24 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
-      appName: 'Ninja Turtles Food Platform',
+      currentView: 'restaurants',
+      cart: [],
+      orders: [],
+      isCartOpen: false,
     };
   },
+  computed: {
+    cartCount() {
+      return this.cart.reduce((sum, item) => sum + item.quantity, 0);
+    },
+    cartTotal() {
+      return this.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    },
+    activeOrdersCount() {
+      return this.orders.filter((o) => o.status !== 'Delivered' && o.status !== 'Cancelled').length;
+    },
+  },
   mounted() {
-    console.log('Ninja Turtles Vue App initialized');
+    console.log('Ninja Turtles navigation initialized');
   },
 }).mount('#app');
