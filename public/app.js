@@ -8,6 +8,13 @@ createApp({
   data() {
     return {
       currentView: 'restaurants',
+
+      // Restaurant Catalogue Data
+      restaurants: [],
+      searchTerm: '',
+      selectedCuisine: 'All',
+      cuisines: ['All', 'Burgers', 'Pizza', 'Biryani', 'Snacks', 'Fast Food'],
+
       cart: [],
       orders: [],
       isCartOpen: false,
@@ -23,8 +30,33 @@ createApp({
     activeOrdersCount() {
       return this.orders.filter((o) => o.status !== 'Delivered' && o.status !== 'Cancelled').length;
     },
+    filteredRestaurants() {
+      return this.restaurants.filter((r) => {
+        const matchesSearch =
+          r.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+          r.cuisine.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+          r.address.toLowerCase().includes(this.searchTerm.toLowerCase());
+        const matchesCuisine =
+          this.selectedCuisine === 'All' ||
+          r.cuisine.toLowerCase().includes(this.selectedCuisine.toLowerCase());
+        return matchesSearch && matchesCuisine;
+      });
+    },
   },
   mounted() {
-    console.log('Ninja Turtles navigation initialized');
+    this.fetchRestaurants();
+  },
+  methods: {
+    async fetchRestaurants() {
+      try {
+        const res = await fetch('/api/restaurants');
+        this.restaurants = await res.json();
+      } catch (err) {
+        console.error('Failed to load restaurants:', err);
+      }
+    },
+    selectRestaurant(restaurant) {
+      console.log('Selected:', restaurant.name);
+    },
   },
 }).mount('#app');
