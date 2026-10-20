@@ -99,6 +99,51 @@ const Order = mongoose.model('Order', orderSchema);
 
 
 // ==========================================
+// 7. REST API ENDPOINTS
+// ==========================================
+
+// GET /api/restaurants -> List all restaurants
+app.get('/api/restaurants', async (req, res) => {
+  try {
+    const list = await Restaurant.find().sort({ rating: -1 });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/restaurants/:id/menu -> List menu dishes for a restaurant
+app.get('/api/restaurants/:id/menu', async (req, res) => {
+  try {
+    const items = await FoodItem.find({ restaurantId: req.params.id });
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/orders -> List all orders (latest first)
+app.get('/api/orders', async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/orders -> Customer places an order
+app.post('/api/orders', async (req, res) => {
+  try {
+    const order = new Order({ ...req.body, status: 'Order Placed' });
+    await order.save();
+    res.status(201).json(order);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ==========================================
 // 8. AUTO-SEED DATABASE IF EMPTY
 // ==========================================
 // 8. AUTO-SEED DATABASE IF EMPTY
