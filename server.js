@@ -131,6 +131,40 @@ app.get('/api/restaurants/:id/menu', async (req, res) => {
   }
 });
 
+// POST /api/restaurants/:id/menu -> Add a new dish to restaurant menu
+app.post('/api/restaurants/:id/menu', async (req, res) => {
+  try {
+    const item = new FoodItem({ ...req.body, restaurantId: req.params.id });
+    await item.save();
+    res.status(201).json(item);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// PATCH /api/menu/:id/toggle -> Toggle food in-stock / out-of-stock
+app.patch('/api/menu/:id/toggle', async (req, res) => {
+  try {
+    const item = await FoodItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+    item.isAvailable = !item.isAvailable;
+    await item.save();
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/menu/:id -> Delete dish from menu
+app.delete('/api/menu/:id', async (req, res) => {
+  try {
+    const deleted = await FoodItem.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Item not found' });
+    res.json({ message: 'Deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/orders -> List all orders (latest first)
 app.get('/api/orders', async (req, res) => {
@@ -157,8 +191,22 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ==========================================
-// 8. AUTO-SEED DATABASE IF EMPTY
+// PATCH /api/orders/:id/status -> Restaurant updates order status (emits real-time event!)
+app.patch('/api/orders/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // 🚀 BROADCAST STATUS CHANGE LIVE TO CUSTOMER
+    io.emit('orderStatusUpdated', order);
+
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==========================================
 // 8. AUTO-SEED DATABASE IF EMPTY
 // ==========================================
@@ -241,7 +289,6 @@ async function seedInitialDataIfEmpty() {
   }
   console.log('✅ Sample data seeded successfully!');
 }
-
 
 // 9. Start Server
 const PORT = process.env.PORT || 5000;
