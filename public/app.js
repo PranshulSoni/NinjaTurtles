@@ -15,6 +15,12 @@ createApp({
       selectedCuisine: 'All',
       cuisines: ['All', 'Burgers', 'Pizza', 'Biryani', 'Snacks', 'Fast Food'],
 
+      // Menu Data
+      selectedRestaurant: null,
+      menuItems: [],
+      vegFilter: 'all', // 'all', 'veg', 'non-veg'
+      activeCategory: 'All',
+
       cart: [],
       orders: [],
       isCartOpen: false,
@@ -42,6 +48,19 @@ createApp({
         return matchesSearch && matchesCuisine;
       });
     },
+    menuCategories() {
+      return ['All', ...new Set(this.menuItems.map((i) => i.category || 'Main Course'))];
+    },
+    filteredMenuItems() {
+      return this.menuItems.filter((i) => {
+        const matchesCat = this.activeCategory === 'All' || i.category === this.activeCategory;
+        const matchesDiet =
+          this.vegFilter === 'all' ||
+          (this.vegFilter === 'veg' && i.isVeg) ||
+          (this.vegFilter === 'non-veg' && !i.isVeg);
+        return matchesCat && matchesDiet;
+      });
+    },
   },
   mounted() {
     this.fetchRestaurants();
@@ -55,8 +74,27 @@ createApp({
         console.error('Failed to load restaurants:', err);
       }
     },
-    selectRestaurant(restaurant) {
-      console.log('Selected:', restaurant.name);
+    async selectRestaurant(restaurant) {
+      this.selectedRestaurant = restaurant;
+      this.currentView = 'menu';
+      this.activeCategory = 'All';
+      this.vegFilter = 'all';
+      try {
+        const res = await fetch(`/api/restaurants/${restaurant._id}/menu`);
+        this.menuItems = await res.json();
+      } catch (err) {
+        console.error('Failed to load menu items:', err);
+      }
+    },
+    addToCart(dish) {
+      console.log('Add to cart:', dish.name);
+    },
+    getItemQty(dishId) {
+      const found = this.cart.find((i) => i._id === dishId);
+      return found ? found.quantity : 0;
+    },
+    updateQty(dishId, delta) {
+      console.log('Update qty:', dishId, delta);
     },
   },
 }).mount('#app');
