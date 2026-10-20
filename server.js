@@ -97,6 +97,15 @@ const orderSchema = new mongoose.Schema(
 );
 const Order = mongoose.model('Order', orderSchema);
 
+// ==========================================
+// 6. REAL-TIME SOCKET.IO HANDLERS
+// ==========================================
+io.on('connection', (socket) => {
+  console.log(`🔌 Client connected: ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`🔌 Client disconnected: ${socket.id}`);
+  });
+});
 
 // ==========================================
 // 7. REST API ENDPOINTS
@@ -122,6 +131,7 @@ app.get('/api/restaurants/:id/menu', async (req, res) => {
   }
 });
 
+
 // GET /api/orders -> List all orders (latest first)
 app.get('/api/orders', async (req, res) => {
   try {
@@ -132,11 +142,15 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
-// POST /api/orders -> Customer places an order
+// POST /api/orders -> Customer places an order (emits real-time event!)
 app.post('/api/orders', async (req, res) => {
   try {
     const order = new Order({ ...req.body, status: 'Order Placed' });
     await order.save();
+
+    // 🚀 BROADCAST NEW ORDER LIVE TO RESTAURANT PORTAL
+    io.emit('newOrder', order);
+
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message });
