@@ -152,26 +152,26 @@ createApp({
     this.socket = io();
 
     this.socket.on('connect', () => {
-      console.log('⚡ Connected to Socket.io server!');
+      console.log('Connected to Socket.io server');
       this.isSocketConnected = true;
     });
 
     this.socket.on('disconnect', () => {
-      console.log('🔌 Disconnected from Socket.io server');
+      console.log('Disconnected from Socket.io server');
       this.isSocketConnected = false;
     });
 
-    // 🚀 LISTEN TO REAL-TIME ORDER STATUS UPDATES:
+    // LISTEN TO REAL-TIME ORDER STATUS UPDATES:
     // When the restaurant kitchen changes status, update client state live!
     this.socket.on('orderStatusUpdated', (updatedOrder) => {
-      console.log('🔔 Live Order Status Update Received:', updatedOrder);
+      console.log('Live Order Status Update Received:', updatedOrder);
       this.orders = this.orders.map((o) => (o._id === updatedOrder._id ? updatedOrder : o));
     });
 
-    // 🚀 LISTEN TO NEW INCOMING ORDERS:
+    // LISTEN TO NEW INCOMING ORDERS:
     // When any order is placed, prepend to orders array live!
     this.socket.on('newOrder', (newOrder) => {
-      console.log('🔔 Live New Order Received:', newOrder);
+      console.log('Live New Order Received:', newOrder);
       this.orders = [newOrder, ...this.orders];
     });
   },
