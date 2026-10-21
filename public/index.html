@@ -110,38 +110,6 @@
               </p>
             </div>
 
-            <!-- Quick 1-Click Demo Accounts -->
-            <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded text-xs">
-              <p class="font-bold text-blue-900 mb-2 flex items-center gap-1.5">
-                <span>⚡</span> Quick 1-Click Demo Logins:
-              </p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button type="button" @click="quickDemoLogin('customer')"
-                  class="bg-white border border-blue-300 hover:bg-blue-100 text-blue-900 p-2.5 rounded text-left transition-colors">
-                  <div class="font-bold flex items-center justify-between">
-                    <span>👤 Customer Demo</span>
-                    <span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">USER</span>
-                  </div>
-                  <p class="text-[11px] text-gray-600 mt-1">Rahul Sharma (Order food, Cart, Track live order)</p>
-                </button>
-
-                <button type="button" @click="quickDemoLogin('admin')"
-                  class="bg-white border border-purple-300 hover:bg-purple-100 text-purple-900 p-2.5 rounded text-left transition-colors">
-                  <div class="font-bold flex items-center justify-between">
-                    <span>👑 Admin Demo</span>
-                    <span class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">ADMIN</span>
-                  </div>
-                  <p class="text-[11px] text-gray-600 mt-1">Chef Vikram (Kitchen portal, cooking status, menu)</p>
-                </button>
-              </div>
-            </div>
-
-            <div class="relative flex py-2 items-center">
-              <div class="flex-grow border-t border-gray-200"></div>
-              <span class="flex-shrink mx-3 text-xs text-gray-400 font-semibold uppercase">Or Sign In with Credentials</span>
-              <div class="flex-grow border-t border-gray-200"></div>
-            </div>
-
             <!-- Tabs: Sign In / Create Account -->
             <div class="flex border-b border-gray-200 mt-2 mb-4 text-xs font-bold">
               <button @click="authMode = 'login'; authError = ''"
@@ -511,13 +479,9 @@
               {{ currentUser ? 'You are currently signed in as ' + currentUser.name + ' (' + currentUser.role + ').' : 'You are currently not signed in.' }}
             </p>
             <div class="flex flex-col sm:flex-row gap-2 justify-center">
-              <button @click="quickDemoLogin('admin')"
-                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded">
-                👑 Quick Demo: Sign In as Admin
-              </button>
               <button @click="openAuthModal('login')"
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded">
-                Custom Login
+                Sign In to Account
               </button>
               <button @click="currentView = 'restaurants'"
                 class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded border border-gray-300">
@@ -777,24 +741,9 @@
         <div class="flex justify-between items-center pb-3 border-b border-gray-200">
           <div>
             <h3 class="text-lg font-bold text-gray-900">Account & RBAC Portal</h3>
-            <p class="text-xs text-gray-500">Sign in to test Customer vs Restaurant Admin roles</p>
+            <p class="text-xs text-gray-500">Sign in to your account</p>
           </div>
           <button @click="closeAuthModal" class="text-gray-500 hover:text-gray-800 text-sm font-bold px-2 py-1">✕</button>
-        </div>
-
-        <!-- Demo 1-Click Quick Login Buttons -->
-        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
-          <p class="font-bold text-blue-900 mb-2">⚡ Quick 1-Click Demo Accounts:</p>
-          <div class="grid grid-cols-2 gap-2">
-            <button type="button" @click="quickDemoLogin('customer')" class="bg-white border border-blue-300 hover:bg-blue-100 text-blue-800 font-semibold py-1.5 px-2 rounded text-left">
-              <span class="block font-bold">👤 Demo Customer</span>
-              <span class="text-[10px] text-gray-500">Order & Track Food</span>
-            </button>
-            <button type="button" @click="quickDemoLogin('admin')" class="bg-white border border-purple-300 hover:bg-purple-100 text-purple-800 font-semibold py-1.5 px-2 rounded text-left">
-              <span class="block font-bold">👑 Demo Admin</span>
-              <span class="text-[10px] text-gray-500">Manage Kitchen & Menu</span>
-            </button>
-          </div>
         </div>
 
         <!-- Mode Switch Tabs -->

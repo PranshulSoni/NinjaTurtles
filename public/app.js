@@ -490,17 +490,6 @@ createApp({
       }
     },
 
-    quickDemoLogin(role) {
-      if (role === 'admin') {
-        this.loginForm.email = 'admin@ninjafood.com';
-        this.loginForm.password = 'admin123';
-      } else {
-        this.loginForm.email = 'user@ninjafood.com';
-        this.loginForm.password = 'user123';
-      }
-      this.handleLogin();
-    },
-
     handleLogout() {
       fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
       this.currentUser = null;
