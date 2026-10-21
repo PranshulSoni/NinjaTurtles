@@ -74,7 +74,7 @@ const orderSchema = new mongoose.Schema({
 });
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
+  name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['customer', 'admin'], default: 'customer' },
@@ -89,23 +89,29 @@ const User = mongoose.model('User', userSchema);
 
 // Helper: Token Generator
 function generateToken(user) {
-  return Buffer.from(JSON.stringify({ id: user._id, role: user.role, email: user.email })).toString('base64');
+  return Buffer.from(JSON.stringify({ _id: user._id, id: user._id, role: user.role, email: user.email })).toString('base64');
 }
 
 // 4. Authentication Endpoints
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    const identifier = (email || '').trim();
+    if (!identifier || !password) return res.status(400).json({ error: 'Email or username and password required' });
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const user = await User.findOne({
+      $or: [
+        { email: identifier.toLowerCase() },
+        { name: new RegExp(`^${identifier}$`, 'i') },
+      ]
+    });
     if (!user || user.password !== password) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid email/username or password' });
     }
 
     res.json({
       token: generateToken(user),
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone, address: user.address },
+      user: { _id: user._id, id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone, address: user.address },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -115,16 +121,33 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, password, role = 'customer', phone = '', address = '' } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password required' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email and password required' });
+    }
 
     const cleanEmail = email.toLowerCase().trim();
-    const existing = await User.findOne({ email: cleanEmail });
-    if (existing) return res.status(400).json({ error: 'Email already registered' });
+    const cleanName = name.trim();
 
-    const user = await User.create({ name, email: cleanEmail, password, role, phone, address });
+    // 1. Check if email already registered
+    const existingEmail = await User.findOne({ email: cleanEmail });
+    if (existingEmail) return res.status(400).json({ error: 'Email already registered' });
+
+    // 2. Check if username (name) already taken
+    const existingUsername = await User.findOne({ name: new RegExp(`^${cleanName}$`, 'i') });
+    if (existingUsername) return res.status(400).json({ error: 'Username already taken' });
+
+    const user = await User.create({
+      name: cleanName,
+      email: cleanEmail,
+      password,
+      role,
+      phone,
+      address,
+    });
+
     res.status(201).json({
       token: generateToken(user),
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone, address: user.address },
+      user: { _id: user._id, id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone, address: user.address },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -138,6 +161,15 @@ app.get('/api/restaurants', async (req, res) => {
   try {
     const list = await Restaurant.find();
     res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/restaurants/:id/menu', async (req, res) => {
+  try {
+    const items = await FoodItem.find({ restaurantId: req.params.id });
+    res.json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -171,7 +203,7 @@ app.post('/api/restaurants/:id/menu', async (req, res) => {
   }
 });
 
-app.patch('/api/fooditems/:id/toggle', async (req, res) => {
+app.patch(['/api/fooditems/:id/toggle', '/api/menu/:id/toggle'], async (req, res) => {
   try {
     const item = await FoodItem.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'Dish not found' });
@@ -183,7 +215,7 @@ app.patch('/api/fooditems/:id/toggle', async (req, res) => {
   }
 });
 
-app.delete('/api/fooditems/:id', async (req, res) => {
+app.delete(['/api/fooditems/:id', '/api/menu/:id'], async (req, res) => {
   try {
     const item = await FoodItem.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ error: 'Dish not found' });
