@@ -283,6 +283,16 @@ io.on('connection', (socket) => {
 // 8. REST API ENDPOINTS (WITH RESILIENT FALLBACK)
 // ==========================================
 
+// GET /api/health -> Check database status & server health
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    dbConnected: isDbConnected && mongoose.connection.readyState === 1,
+    mode: (isDbConnected && mongoose.connection.readyState === 1) ? 'MongoDB' : 'In-Memory Fallback',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // GET /api/restaurants -> List all restaurants
 app.get('/api/restaurants', async (req, res) => {
   try {
