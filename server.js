@@ -175,6 +175,17 @@ let fallbackFoodItems = [
     isAvailable: true,
     imageUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500',
   },
+  {
+    _id: '6ad789e72c06223043482d10',
+    restaurantId: '6ad789e72c06223043482c6f',
+    name: 'Gulab Jamun (2 Pcs)',
+    description: 'Soft melt-in-mouth cottage cheese dumplings soaked in warm rose-infused sugar syrup.',
+    price: 90,
+    category: 'Dessert',
+    isVeg: true,
+    isAvailable: true,
+    imageUrl: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=500&auto=format&fit=crop',
+  },
 ];
 
 let fallbackOrders = [];
