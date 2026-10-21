@@ -16,23 +16,23 @@
   <div id="app" class="min-h-screen flex flex-col justify-between">
     <div>
       <!-- TOP NAVIGATION BAR -->
-      <header class="bg-white border-b border-gray-300 sticky top-0 z-30">
-        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          <!-- Team Name & Brand -->
+      <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <!-- Logo & Brand -->
           <div @click="currentView = 'restaurants'" class="cursor-pointer">
-            <h1 class="text-xl font-bold text-gray-900 leading-tight">Ninja Turtles</h1>
+            <h1 class="text-xl font-bold text-gray-900">Ninja Turtles</h1>
             <p class="text-xs text-gray-500">Food Ordering Platform</p>
           </div>
 
           <!-- Nav Tabs -->
-          <div class="flex items-center gap-2">
+          <nav class="flex items-center gap-2">
             <button
               @click="currentView = 'restaurants'"
               :class="[
-                'px-3 py-1.5 rounded text-sm font-medium border',
+                'px-3 py-1.5 rounded text-sm font-medium',
                 currentView === 'restaurants' || currentView === 'menu'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               ]"
             >
               Order Food
@@ -41,10 +41,10 @@
             <button
               @click="currentView = 'orders'"
               :class="[
-                'px-3 py-1.5 rounded text-sm font-medium border',
+                'px-3 py-1.5 rounded text-sm font-medium',
                 currentView === 'orders'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               ]"
             >
               My Orders <span v-if="activeOrdersCount > 0">({{ activeOrdersCount }})</span>
@@ -53,28 +53,25 @@
             <button
               @click="currentView = 'restaurant-admin'"
               :class="[
-                'px-3 py-1.5 rounded text-sm font-medium border',
+                'px-3 py-1.5 rounded text-sm font-medium',
                 currentView === 'restaurant-admin'
-                  ? 'bg-green-600 text-white border-green-600'
-                  : 'bg-white text-green-700 border-green-600 hover:bg-green-50'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-green-50 text-green-700 hover:bg-green-100'
               ]"
             >
-              Restaurant Portal (Admin)
+              Restaurant Admin
             </button>
-          </div>
+          </nav>
 
-          <!-- Right Cart Button -->
-          <div class="flex items-center gap-3">
-
-            <button
-              @click="isCartOpen = true"
-              class="bg-gray-900 hover:bg-black text-white text-sm font-medium px-3.5 py-1.5 rounded border border-gray-900 flex items-center gap-1.5"
-            >
-              <span>🛒 Cart</span>
-              <span>({{ cartCount }})</span>
-              <span v-if="cartCount > 0">• ₹{{ cartTotal }}</span>
-            </button>
-          </div>
+          <!-- Cart Button -->
+          <button
+            @click="isCartOpen = true"
+            class="bg-gray-900 hover:bg-black text-white text-sm font-medium px-4 py-2 rounded flex items-center gap-2"
+          >
+            <span>🛒 Cart</span>
+            <span>({{ cartCount }})</span>
+            <span v-if="cartCount > 0">• ₹{{ cartTotal }}</span>
+          </button>
         </div>
       </header>
 
