@@ -148,6 +148,13 @@ createApp({
     // Fetch initial restaurants catalog and health
     this.checkDbHealth();
     this.fetchRestaurants();
+
+    // Auto-refresh orders every 5s if user is logged in and viewing orders or tracking active deliveries
+    setInterval(() => {
+      if (this.currentUser && (this.currentView === 'orders' || this.activeOrdersCount > 0)) {
+        this.fetchOrders();
+      }
+    }, 5000);
   },
 
   methods: {
