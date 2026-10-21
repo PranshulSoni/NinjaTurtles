@@ -221,12 +221,12 @@ function connectToDatabase() {
     .connect(MONGO_URI, { serverSelectionTimeoutMS: 2500 })
     .then(async () => {
       isDbConnected = true;
-      console.log('✅ Connected to MongoDB successfully!');
+      console.log('Connected to MongoDB successfully!');
       await seedInitialDataIfEmpty();
     })
     .catch((err) => {
       isDbConnected = false;
-      console.warn('⚠️ MongoDB connection unavailable. Active in-memory fallback store enabled:', err.message);
+      console.warn('MongoDB connection unavailable. Active in-memory fallback store enabled:', err.message);
       // Auto-retry connection every 6 seconds in background
       setTimeout(connectToDatabase, 6000);
     });
@@ -235,11 +235,11 @@ connectToDatabase();
 
 mongoose.connection.on('disconnected', () => {
   isDbConnected = false;
-  console.log('⚠️ MongoDB disconnected. Using in-memory fallback.');
+  console.log('MongoDB disconnected. Using in-memory fallback.');
 });
 mongoose.connection.on('connected', () => {
   isDbConnected = true;
-  console.log('✅ MongoDB connection restored.');
+  console.log('MongoDB connection restored.');
 });
 
 // ==========================================
@@ -318,9 +318,9 @@ const User = mongoose.model('User', userSchema);
 // 7. REAL-TIME SOCKET.IO HANDLERS
 // ==========================================
 io.on('connection', (socket) => {
-  console.log(`🔌 Client connected: ${socket.id}`);
+  console.log(`Client connected: ${socket.id}`);
   socket.on('disconnect', () => {
-    console.log(`🔌 Client disconnected: ${socket.id}`);
+    console.log(`Client disconnected: ${socket.id}`);
   });
 });
 
@@ -657,7 +657,7 @@ app.post('/api/orders', async (req, res) => {
       fallbackOrders.unshift(order);
     }
 
-    // 🚀 BROADCAST NEW ORDER LIVE TO RESTAURANT PORTAL
+    // BROADCAST NEW ORDER LIVE TO RESTAURANT PORTAL
     io.emit('newOrder', order);
 
     res.status(201).json(order);
@@ -681,7 +681,7 @@ app.patch('/api/orders/:id/status', async (req, res) => {
 
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
-    // 🚀 BROADCAST STATUS CHANGE LIVE TO CUSTOMER
+    // BROADCAST STATUS CHANGE LIVE TO CUSTOMER
     io.emit('orderStatusUpdated', order);
 
     res.json(order);
@@ -697,15 +697,15 @@ async function seedInitialDataIfEmpty() {
   try {
     const userCount = await User.countDocuments();
     if (userCount === 0) {
-      console.log('👤 Seeding sample demo users (customer and admin) into MongoDB...');
+      console.log('Seeding sample demo users into MongoDB...');
       await User.create(fallbackUsers);
-      console.log('✅ Demo users seeded successfully into MongoDB!');
+      console.log('Demo users seeded successfully into MongoDB!');
     }
 
     const count = await Restaurant.countDocuments();
     if (count > 0) return; // Already has data
 
-    console.log('🌱 Seeding sample restaurant data into MongoDB...');
+    console.log('Seeding sample restaurant data into MongoDB...');
     for (const r of fallbackRestaurants) {
       const createdRest = await Restaurant.create({
         name: r.name,
@@ -733,14 +733,14 @@ async function seedInitialDataIfEmpty() {
         await FoodItem.create(dishes);
       }
     }
-    console.log('✅ Sample data seeded successfully into MongoDB!');
+    console.log('Sample data seeded successfully into MongoDB!');
   } catch (e) {
-    console.warn('⚠️ Seeding skipped:', e.message);
+    console.warn('Seeding skipped:', e.message);
   }
 }
 
 // 10. Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`🚀 Food Delivery Server running on http://localhost:${PORT}`);
+  console.log(`Food Delivery Server running on http://localhost:${PORT}`);
 });

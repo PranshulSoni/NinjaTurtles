@@ -1,10 +1,10 @@
-# 🐢 Ninja Turtles - Food Ordering Platform
+# Ninja Turtles - Food Ordering Platform
 
 A simple, complete Full-Stack real-time food ordering platform built by **Team Ninja Turtles**.
 
 ---
 
-## 🌟 The Simplest Possible Project Structure
+## The Simplest Possible Project Structure
 
 The entire project has been consolidated into **just 3 core files** so you can easily explain every single line to your faculty without any confusion or file bloat:
 
@@ -20,12 +20,12 @@ Assignment/
 │
 ├── package.json       # Dependencies (express, mongoose, socket.io, cors)
 ├── README.md          # Setup instructions
-└── VIVA_GUIDE.md      # 🎓 Line-by-line explanation guide for your professor
+└── VIVA_GUIDE.md      # Line-by-line explanation guide for your professor
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 | Component | Technology |
 |---|---|
@@ -37,7 +37,7 @@ Assignment/
 
 ---
 
-## 🚀 How to Run the Project (1 Single Command!)
+## How to Run the Project (1 Single Command!)
 
 1. **Make sure MongoDB is running:**
    ```bash
@@ -58,18 +58,18 @@ Assignment/
 
 ---
 
-## 🎯 Features
+## Features
 
 1. **Browse Restaurants**: Search by name or filter by cuisine (*Burgers, Pizza, Biryani, Snacks*).
-2. **Food Menu**: Filter Pure Veg 🟢 vs Non-Veg 🔴 dishes with price and descriptions.
+2. **Food Menu**: Filter Pure Veg vs Non-Veg dishes with price and descriptions.
 3. **Cart & Checkout**: Dynamic quantity controls `[-] qty [+]` with subtotal, 5% GST, and delivery charges.
-4. **Live Order Tracking**: Real-time 4-stage stepper (`Order Placed` ➔ `Preparing` ➔ `Out for Delivery` ➔ `Delivered`).
+4. **Live Order Tracking**: Real-time 4-stage stepper (`Order Placed` -> `Preparing` -> `Out for Delivery` -> `Delivered`).
 5. **Restaurant Portal (Admin)**:
    - Live incoming kitchen orders screen with one-click status buttons.
-   - Advance status ➔ customer's screen updates **instantly via Socket.io** without page refresh!
+   - Advance status -> customer's screen updates **instantly via Socket.io** without page refresh!
    - Manage menu: toggle In-Stock / Out-of-Stock, delete dishes, or add new dishes.
 
 ---
 
-## 🎓 Faculty Viva Preparation
+## Faculty Viva Preparation
 Read **`VIVA_GUIDE.md`** for a clear breakdown of `server.js` and `app.js`, plus direct answers to common viva questions.

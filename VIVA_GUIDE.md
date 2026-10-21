@@ -1,4 +1,4 @@
-# 🎓 Faculty Viva & Code Explanation Guide
+# Faculty Viva & Code Explanation Guide
 ### Team Ninja Turtles - Food Ordering Platform
 *Consolidated 3-File Architecture (Vue.js + Node.js + Express + MongoDB)*
 
@@ -85,7 +85,7 @@ createApp({
 - `cartCount`: Total number of items in the cart (`cart.reduce(...)`).
 - `cartTotal`: Sum of item prices times quantities.
 - `filteredRestaurants`: Filters restaurants by search text and cuisine category.
-- `filteredMenuItems`: Filters dishes by Pure Veg 🟢 vs Non-Veg 🔴.
+- `filteredMenuItems`: Filters dishes by Pure Veg vs Non-Veg.
 
 ### 3. `mounted()`: Lifecycle Hook
 - Executes when the page loads.
