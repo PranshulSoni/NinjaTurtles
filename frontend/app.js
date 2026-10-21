@@ -65,6 +65,7 @@ createApp({
       },
       registerForm: {
         name: '',
+        userId: '',
         email: '',
         password: '',
         role: 'customer', // 'customer' or 'admin'
