@@ -9,8 +9,6 @@
   <!-- Tailwind CSS & Vue 3 via standard CDN (Zero build configs needed!) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <!-- Socket.io client provided automatically by Express server -->
-  <script src="/socket.io/socket.io.js"></script>
   <!-- Custom Application Stylesheet -->
   <link rel="stylesheet" href="/css/style.css" />
 </head>
@@ -68,7 +66,7 @@
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
                 ]">
-                All Live Orders ({{ orders.length }})
+                My Orders ({{ orders.length }})
               </button>
             </template>
           </div>
@@ -372,15 +370,15 @@
           <div
             class="bg-white border border-gray-300 rounded p-4 mb-6 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <div>
-              <h2 class="text-xl font-bold text-gray-800">Live Order Tracking</h2>
+              <h2 class="text-xl font-bold text-gray-800">Your Orders & Status</h2>
               <p class="text-xs text-gray-500 mt-0.5">
-                Real-time updates via Socket.io. When the restaurant updates your order, this tracker moves live!
+                Track status and view details of your placed food orders.
               </p>
             </div>
-            <span
-              :class="['text-xs px-2.5 py-1 rounded font-bold border self-start sm:self-auto', isSocketConnected ? 'bg-green-100 text-green-800 border-green-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300']">
-              {{ isSocketConnected ? '● WebSocket Active' : '○ Connecting...' }}
-            </span>
+            <button @click="fetchOrders"
+              class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 text-xs font-semibold rounded self-start sm:self-auto">
+              Refresh Orders
+            </button>
           </div>
 
           <div v-if="orders.length === 0" class="bg-white border border-gray-300 rounded p-8 text-center text-gray-500">
@@ -809,11 +807,6 @@
           <span class="flex items-center gap-1.5">
             <span class="inline-block w-2 h-2 rounded-full" :class="isDbConnected ? 'bg-green-500' : 'bg-red-500'"></span>
             <span>MongoDB: {{ isDbConnected ? dbName + ' (Active)' : 'Disconnected' }}</span>
-          </span>
-          <span>•</span>
-          <span class="flex items-center gap-1.5">
-            <span class="inline-block w-2 h-2 rounded-full" :class="isSocketConnected ? 'bg-blue-500' : 'bg-gray-400'"></span>
-            <span>Real-time: {{ isSocketConnected ? 'Live' : 'Connecting' }}</span>
           </span>
         </div>
       </div>
