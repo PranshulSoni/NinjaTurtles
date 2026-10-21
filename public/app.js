@@ -35,7 +35,8 @@ createApp({
         address: 'Flat 402, Green Avenue, Nirma Campus, Ahmedabad',
       },
 
-      // Real-time WebSocket State
+      // Database & Socket Status
+      isDbConnected: true,
       isSocketConnected: false,
       socket: null,
 
@@ -130,6 +131,15 @@ createApp({
 
   methods: {
     // API: Fetch Restaurants
+    async checkDbHealth() {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        this.isDbConnected = !!data.dbConnected;
+      } catch (e) {
+        this.isDbConnected = false;
+      }
+    },
     async fetchRestaurants() {
       try {
         const res = await fetch('/api/restaurants');
@@ -329,6 +339,15 @@ createApp({
       } catch (err) {
         console.error('Error adding dish:', err);
       }
+    },
+
+    // Image fallback error handlers
+    handleRestaurantImageError(event) {
+      event.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600';
+    },
+
+    handleFoodImageError(event) {
+      event.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
     },
   },
 }).mount('#app');
