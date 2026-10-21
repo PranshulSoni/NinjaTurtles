@@ -71,6 +71,7 @@ const orderSchema = new mongoose.Schema({
     default: 'Order Placed',
   },
   createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
 });
 
 const userSchema = new mongoose.Schema({
@@ -228,6 +229,13 @@ app.delete(['/api/fooditems/:id', '/api/menu/:id'], async (req, res) => {
 // 6. Orders Endpoints (Filtered per User or Restaurant)
 app.get('/api/orders', async (req, res) => {
   try {
+    // Auto-advance: any order that has been "Out for Delivery" for >= 30 seconds becomes "Delivered"
+    const cutoff = new Date(Date.now() - 30 * 1000);
+    await Order.updateMany(
+      { status: 'Out for Delivery', updatedAt: { $lte: cutoff } },
+      { $set: { status: 'Delivered', updatedAt: new Date() } }
+    );
+
     const query = {};
     if (req.query.userId) query.userId = req.query.userId;
     if (req.query.restaurantId) query.restaurantId = req.query.restaurantId;
@@ -241,7 +249,7 @@ app.get('/api/orders', async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const order = await Order.create(req.body);
+    const order = await Order.create({ ...req.body, updatedAt: new Date() });
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -250,8 +258,22 @@ app.post('/api/orders', async (req, res) => {
 
 app.patch('/api/orders/:id/status', async (req, res) => {
   try {
-    const order = await Order.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+    const updateData = { status: req.body.status, updatedAt: new Date() };
+    const order = await Order.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // Auto-advance: exactly 30 seconds after becoming "Out for Delivery", automatically mark as "Delivered"
+    if (req.body.status === 'Out for Delivery') {
+      setTimeout(async () => {
+        try {
+          await Order.findByIdAndUpdate(req.params.id, { status: 'Delivered', updatedAt: new Date() });
+          console.log(`Order ${req.params.id} automatically marked as Delivered after 30 seconds.`);
+        } catch (err) {
+          console.error(`Auto-delivery update failed for order ${req.params.id}:`, err.message);
+        }
+      }, 30000);
+    }
+
     res.json(order);
   } catch (err) {
     res.status(500).json({ error: err.message });
