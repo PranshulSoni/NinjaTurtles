@@ -35,11 +35,9 @@ createApp({
         address: 'Flat 402, Green Avenue, Nirma Campus, Ahmedabad',
       },
 
-      // Database & Socket Status
+      // Database Status
       isDbConnected: true,
       dbName: 'food_delivery_db',
-      isSocketConnected: false,
-      socket: null,
 
       // Restaurant Partner Portal (Admin)
       adminSelectedRestaurantId: '',
@@ -137,6 +135,7 @@ createApp({
         } else {
           this.currentView = 'restaurants';
         }
+        this.fetchOrders();
       } else {
         this.currentView = 'login';
       }
@@ -145,36 +144,9 @@ createApp({
       this.currentView = 'login';
     }
 
-    // 1. Fetch initial restaurants and orders
+    // Fetch initial restaurants catalog and health
+    this.checkDbHealth();
     this.fetchRestaurants();
-    this.fetchOrders();
-
-    // 2. Connect to Socket.io Real-time WebSocket
-    this.socket = io();
-
-    this.socket.on('connect', () => {
-      console.log('Connected to Socket.io server');
-      this.isSocketConnected = true;
-    });
-
-    this.socket.on('disconnect', () => {
-      console.log('Disconnected from Socket.io server');
-      this.isSocketConnected = false;
-    });
-
-    // LISTEN TO REAL-TIME ORDER STATUS UPDATES:
-    // When the restaurant kitchen changes status, update client state live!
-    this.socket.on('orderStatusUpdated', (updatedOrder) => {
-      console.log('Live Order Status Update Received:', updatedOrder);
-      this.orders = this.orders.map((o) => (o._id === updatedOrder._id ? updatedOrder : o));
-    });
-
-    // LISTEN TO NEW INCOMING ORDERS:
-    // When any order is placed, prepend to orders array live!
-    this.socket.on('newOrder', (newOrder) => {
-      console.log('Live New Order Received:', newOrder);
-      this.orders = [newOrder, ...this.orders];
-    });
   },
 
   methods: {
@@ -203,10 +175,18 @@ createApp({
       }
     },
 
-    // API: Fetch Orders
+    // API: Fetch Orders for current logged in user
     async fetchOrders() {
+      if (!this.currentUser) {
+        this.orders = [];
+        return;
+      }
       try {
-        const res = await fetch('/api/orders');
+        let url = '/api/orders';
+        if (this.currentUser.role === 'customer') {
+          url += `?userId=${this.currentUser.id || this.currentUser._id}`;
+        }
+        const res = await fetch(url);
         const data = await res.json();
         this.orders = Array.isArray(data) ? data : [];
       } catch (err) {
@@ -274,6 +254,8 @@ createApp({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            userId: this.currentUser ? (this.currentUser.id || this.currentUser._id) : '',
+            userEmail: this.currentUser ? this.currentUser.email : '',
             customerName: this.customer.name,
             customerPhone: this.customer.phone,
             deliveryAddress: this.customer.address,
@@ -295,7 +277,7 @@ createApp({
           this.cart = [];
           this.cartRestaurant = null;
           this.isCartOpen = false;
-          this.currentView = 'orders'; // Jump to real-time tracking
+          this.currentView = 'orders';
         }
       } catch (err) {
         alert('Failed to place order.');
@@ -444,6 +426,7 @@ createApp({
       } else {
         this.currentView = 'restaurants';
       }
+      this.fetchOrders();
     },
 
     async handleLogin() {
@@ -500,6 +483,7 @@ createApp({
       localStorage.removeItem('ninja_token');
       this.currentView = 'login';
       this.cart = [];
+      this.orders = [];
     },
 
     navigateWithRoleCheck(view) {
