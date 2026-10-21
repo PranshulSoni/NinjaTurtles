@@ -4,20 +4,23 @@ A simple, complete Full-Stack real-time food ordering platform built by **Team N
 
 ---
 
-## The Simplest Possible Project Structure
+## Clean Project Structure
 
-The entire project has been consolidated into **just 3 core files** so you can easily explain every single line to your faculty without any confusion or file bloat:
+The project is cleanly divided into `frontend/` and `backend/` folders for modularity and easy explanation:
 
 ```
 Assignment/
 │
-├── public/
+├── frontend/
 │   ├── index.html     # HTML structure with Tailwind CSS & Vue 3 template
-│   └── app.js         # The entire Vue.js frontend logic in ONE pure JavaScript file!
+│   ├── app.js         # The entire Vue.js frontend logic in pure JavaScript
+│   └── css/
+│       └── style.css  # Dedicated frontend styles & transitions
 │
-├── server.js          # The entire Node.js + Express backend, Mongoose Models, 
-│                      # Socket.io Real-Time WebSockets, and REST APIs in ONE file!
+├── backend/
+│   └── server.js      # Express backend, MongoDB Models, Socket.io Real-Time, REST APIs
 │
+├── server.js          # Root launcher forwarding to backend/server.js
 ├── package.json       # Dependencies (express, mongoose, socket.io, cors)
 ├── README.md          # Setup instructions
 └── VIVA_GUIDE.md      # Line-by-line explanation guide for your professor

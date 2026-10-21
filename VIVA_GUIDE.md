@@ -1,18 +1,19 @@
 # Faculty Viva & Code Explanation Guide
 ### Team Ninja Turtles - Food Ordering Platform
-*Consolidated 3-File Architecture (Vue.js + Node.js + Express + MongoDB)*
+*Modular Full-Stack Architecture (frontend/ + backend/ + Express + MongoDB)*
 
 ---
 
-## 1. High-Level Architecture: Why Only 3 Files?
+## 1. High-Level Architecture: How is the Project Structured?
 
 When your faculty asks: **"Show me your project structure and files."**
 > **Viva Answer**:  
-> *"Ma'am/Sir, rather than creating 25 fragmented files with complicated bundler configurations, I organized the entire application into a clean, transparent 3-file architecture:
-> 1. `server.js`: Contains our Express backend, MongoDB Mongoose models, REST API routes, and Socket.io real-time server.
-> 2. `public/app.js`: Contains our complete Vue.js frontend application logic in a single pure JavaScript file using the standard Options API.
-> 3. `public/index.html`: Contains our clean UI structure with Tailwind CSS styling and Vue directives.
-> This makes the entire codebase easy to read, debug, and maintain."*
+> *"Ma'am/Sir, our project is organized cleanly into dedicated `frontend/` and `backend/` directories for modularity and separation of concerns:
+> 1. `backend/server.js`: Contains our Express server, MongoDB Mongoose models, REST API routes, RBAC authentication, and Socket.io real-time server.
+> 2. `frontend/app.js`: Contains our complete Vue.js frontend application logic in a single pure JavaScript file using the standard Options API.
+> 3. `frontend/index.html`: Contains our clean UI structure with Tailwind CSS styling and Vue directives.
+> 4. `frontend/css/style.css`: Contains custom CSS styling, transitions, and scrollbar rules.
+> This makes the entire codebase modular, easy to read, debug, and demonstrate."*
 
 ---
 
