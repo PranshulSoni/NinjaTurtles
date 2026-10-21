@@ -133,7 +133,8 @@ createApp({
     async fetchRestaurants() {
       try {
         const res = await fetch('/api/restaurants');
-        this.restaurants = await res.json();
+        const data = await res.json();
+        this.restaurants = Array.isArray(data) ? data : [];
         if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
           this.adminSelectedRestaurantId = this.restaurants[0]._id;
           this.fetchAdminMenu();
@@ -147,7 +148,8 @@ createApp({
     async fetchOrders() {
       try {
         const res = await fetch('/api/orders');
-        this.orders = await res.json();
+        const data = await res.json();
+        this.orders = Array.isArray(data) ? data : [];
       } catch (err) {
         console.error('Error fetching orders:', err);
       }
@@ -159,7 +161,8 @@ createApp({
       this.currentView = 'menu';
       try {
         const res = await fetch(`/api/restaurants/${restaurant._id}/menu`);
-        this.menuItems = await res.json();
+        const data = await res.json();
+        this.menuItems = Array.isArray(data) ? data : [];
       } catch (err) {
         console.error('Error fetching menu:', err);
       }
@@ -251,7 +254,8 @@ createApp({
       if (!this.adminSelectedRestaurantId) return;
       try {
         const res = await fetch(`/api/restaurants/${this.adminSelectedRestaurantId}/menu`);
-        this.adminMenuItems = await res.json();
+        const data = await res.json();
+        this.adminMenuItems = Array.isArray(data) ? data : [];
       } catch (err) {
         console.error('Error fetching admin menu:', err);
       }
