@@ -129,8 +129,8 @@
             <!-- Sign In Form -->
             <form v-if="authMode === 'login'" @submit.prevent="handleLogin" class="space-y-3.5 text-xs">
               <div>
-                <label class="block text-gray-700 font-medium mb-1">Email Address:</label>
-                <input type="email" required v-model="loginForm.email" placeholder="user@ninjafood.com"
+                <label class="block text-gray-700 font-medium mb-1">Email or User ID:</label>
+                <input type="text" required v-model="loginForm.email" placeholder="user@ninjafood.com or rahul_01"
                   class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500 text-sm" />
               </div>
               <div>
@@ -149,6 +149,11 @@
               <div>
                 <label class="block text-gray-700 font-medium mb-1">Full Name:</label>
                 <input type="text" required v-model="registerForm.name" placeholder="Rahul Sharma"
+                  class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500 text-sm" />
+              </div>
+              <div>
+                <label class="block text-gray-700 font-medium mb-1">User ID / Username (Optional):</label>
+                <input type="text" v-model="registerForm.userId" placeholder="e.g. rahul_01"
                   class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500 text-sm" />
               </div>
               <div>
