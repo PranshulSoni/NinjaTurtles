@@ -51,6 +51,27 @@ createApp({
         isVeg: true,
         description: '',
       },
+
+      // Authentication & Role-Based Access Control (RBAC)
+      currentUser: null,
+      authToken: '',
+      authModalOpen: false,
+      authMode: 'login', // 'login' or 'register'
+      authError: '',
+      authSuccess: '',
+      authLoading: false,
+      loginForm: {
+        email: '',
+        password: '',
+      },
+      registerForm: {
+        name: '',
+        email: '',
+        password: '',
+        role: 'customer', // 'customer' or 'admin'
+        phone: '',
+        address: '',
+      },
     };
   },
 
@@ -97,6 +118,27 @@ createApp({
   },
 
   mounted() {
+    // 0. Restore Auth session from localStorage
+    try {
+      const savedUser = localStorage.getItem('ninja_user');
+      const savedToken = localStorage.getItem('ninja_token');
+      if (savedUser && savedToken) {
+        this.currentUser = JSON.parse(savedUser);
+        this.authToken = savedToken;
+        if (this.currentUser.name) {
+          this.customer.name = this.currentUser.name;
+          this.customer.phone = this.currentUser.phone || this.customer.phone;
+          this.customer.address = this.currentUser.address || this.customer.address;
+        }
+        // Direct to appropriate initial view based on role
+        if (this.currentUser.role === 'admin') {
+          this.currentView = 'restaurant-admin';
+        }
+      }
+    } catch (e) {
+      console.warn('Could not restore auth session:', e);
+    }
+
     // 1. Fetch initial restaurants and orders
     this.fetchRestaurants();
     this.fetchOrders();
@@ -291,10 +333,15 @@ createApp({
     // Admin: Toggle dish in-stock / out-of-stock
     async toggleStock(dishId) {
       try {
-        const res = await fetch(`/api/menu/${dishId}/toggle`, { method: 'PATCH' });
+        const headers = {};
+        if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
+        const res = await fetch(`/api/menu/${dishId}/toggle`, { method: 'PATCH', headers });
         if (res.ok) {
           const updated = await res.json();
           this.adminMenuItems = this.adminMenuItems.map((d) => (d._id === dishId ? updated : d));
+        } else {
+          const errData = await res.json();
+          alert(errData.error || 'Failed to toggle stock');
         }
       } catch (err) {
         console.error('Error toggling stock:', err);
@@ -305,9 +352,14 @@ createApp({
     async deleteDish(dishId) {
       if (!confirm('Delete this dish?')) return;
       try {
-        const res = await fetch(`/api/menu/${dishId}`, { method: 'DELETE' });
+        const headers = {};
+        if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
+        const res = await fetch(`/api/menu/${dishId}`, { method: 'DELETE', headers });
         if (res.ok) {
           this.adminMenuItems = this.adminMenuItems.filter((d) => d._id !== dishId);
+        } else {
+          const errData = await res.json();
+          alert(errData.error || 'Failed to delete dish');
         }
       } catch (err) {
         console.error('Error deleting dish:', err);
@@ -318,9 +370,11 @@ createApp({
     async addNewDish() {
       if (!this.newDish.name || !this.newDish.price) return;
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
         const res = await fetch(`/api/restaurants/${this.adminSelectedRestaurantId}/menu`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             name: this.newDish.name,
             price: Number(this.newDish.price),
@@ -335,10 +389,136 @@ createApp({
           this.newDish.name = '';
           this.newDish.price = '';
           this.newDish.description = '';
+        } else {
+          const errData = await res.json();
+          alert(errData.error || 'Failed to add dish');
         }
       } catch (err) {
         console.error('Error adding dish:', err);
       }
+    },
+
+    // ==========================================
+    // AUTHENTICATION & RBAC METHODS
+    // ==========================================
+
+    openAuthModal(mode = 'login') {
+      this.authMode = mode;
+      this.authError = '';
+      this.authSuccess = '';
+      this.authModalOpen = true;
+    },
+
+    closeAuthModal() {
+      this.authModalOpen = false;
+      this.authError = '';
+      this.authSuccess = '';
+    },
+
+    setAuthSession(user, token) {
+      this.currentUser = user;
+      this.authToken = token;
+      localStorage.setItem('ninja_user', JSON.stringify(user));
+      localStorage.setItem('ninja_token', token);
+
+      if (user.name) this.customer.name = user.name;
+      if (user.phone) this.customer.phone = user.phone;
+      if (user.address) this.customer.address = user.address;
+
+      // Role-Based Access Control Redirection:
+      // If Admin -> automatically navigate to Restaurant Partner Portal
+      // If Customer -> navigate to Order Food view
+      if (user.role === 'admin') {
+        this.currentView = 'restaurant-admin';
+        if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
+          this.adminSelectedRestaurantId = this.restaurants[0]._id;
+        }
+        this.fetchAdminMenu();
+      } else {
+        this.currentView = 'restaurants';
+      }
+    },
+
+    async handleLogin() {
+      this.authError = '';
+      this.authLoading = true;
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.loginForm),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          this.setAuthSession(data.user, data.token);
+          this.closeAuthModal();
+        } else {
+          this.authError = data.error || 'Invalid credentials.';
+        }
+      } catch (err) {
+        this.authError = 'Network error while attempting login.';
+      } finally {
+        this.authLoading = false;
+      }
+    },
+
+    async handleRegister() {
+      this.authError = '';
+      this.authLoading = true;
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.registerForm),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          this.setAuthSession(data.user, data.token);
+          this.closeAuthModal();
+        } else {
+          this.authError = data.error || 'Registration failed.';
+        }
+      } catch (err) {
+        this.authError = 'Network error during registration.';
+      } finally {
+        this.authLoading = false;
+      }
+    },
+
+    quickDemoLogin(role) {
+      if (role === 'admin') {
+        this.loginForm.email = 'admin@ninjafood.com';
+        this.loginForm.password = 'admin123';
+      } else {
+        this.loginForm.email = 'user@ninjafood.com';
+        this.loginForm.password = 'user123';
+      }
+      this.handleLogin();
+    },
+
+    handleLogout() {
+      this.currentUser = null;
+      this.authToken = '';
+      localStorage.removeItem('ninja_user');
+      localStorage.removeItem('ninja_token');
+      this.currentView = 'restaurants';
+      this.cart = [];
+    },
+
+    navigateWithRoleCheck(view) {
+      if (view === 'restaurant-admin') {
+        if (!this.currentUser) {
+          this.authError = 'Access Denied: Please log in with an Admin account to access the Restaurant Portal.';
+          this.openAuthModal('login');
+          return;
+        }
+        if (this.currentUser.role !== 'admin') {
+          this.authError = 'Role Restriction: Your account has Customer privileges. Please log in as an Admin.';
+          this.openAuthModal('login');
+          return;
+        }
+      }
+      this.currentView = view;
     },
 
     // Image fallback error handlers
