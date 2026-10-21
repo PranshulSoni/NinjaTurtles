@@ -2,9 +2,9 @@
   "name": "ninja-turtles-food-platform",
   "version": "1.0.0",
   "description": "Full Stack Food Ordering Platform (Vue.js + Node.js + Express + MongoDB)",
-  "main": "server.js",
+  "main": "backend/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node backend/server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
