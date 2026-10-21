@@ -1,13 +1,14 @@
 // public/app.js
-// Frontend Logic for Team Ninja Turtles Food Platform
-// Pure Standard JavaScript with Vue 3 Options API
+// Complete Vue.js Frontend Logic for Team Ninja Turtles Food Platform
+// 100% Pure Standard JavaScript with Vue 3 Options API
 
 const { createApp } = Vue;
 
 createApp({
   data() {
     return {
-      currentView: 'restaurants',
+      // Navigation
+      currentView: 'restaurants', // 'restaurants', 'menu', 'orders', 'restaurant-admin'
 
       // Restaurant Catalogue Data
       restaurants: [],
@@ -21,6 +22,10 @@ createApp({
       vegFilter: 'all', // 'all', 'veg', 'non-veg'
       activeCategory: 'All',
 
+      // Orders
+      orders: [],
+
+      // Cart State
       cart: [],
       cartRestaurant: null,
       isCartOpen: false,
@@ -29,13 +34,25 @@ createApp({
         phone: '9825123456',
         address: 'Flat 402, Green Avenue, Nirma Campus, Ahmedabad',
       },
-      orders: [],
 
       // Real-time WebSocket State
       isSocketConnected: false,
       socket: null,
+
+      // Restaurant Partner Portal (Admin)
+      adminSelectedRestaurantId: '',
+      adminTab: 'orders', // 'orders' or 'menu'
+      adminMenuItems: [],
+      newDish: {
+        name: '',
+        price: '',
+        category: 'Main Course',
+        isVeg: true,
+        description: '',
+      },
     };
   },
+
   computed: {
     cartCount() {
       return this.cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -71,11 +88,19 @@ createApp({
         return matchesCat && matchesDiet;
       });
     },
+    adminRestaurantOrders() {
+      return this.orders.filter(
+        (o) => o.restaurantId === this.adminSelectedRestaurantId
+      );
+    },
   },
-  mounted() {
-    this.fetchRestaurants();
 
-    // Connect to Socket.io Real-time WebSocket
+  mounted() {
+    // 1. Fetch initial restaurants and orders
+    this.fetchRestaurants();
+    this.fetchOrders();
+
+    // 2. Connect to Socket.io Real-time WebSocket
     this.socket = io();
 
     this.socket.on('connect', () => {
@@ -88,79 +113,99 @@ createApp({
       this.isSocketConnected = false;
     });
 
+    // 🚀 LISTEN TO REAL-TIME ORDER STATUS UPDATES:
+    // When the restaurant kitchen changes status, update client state live!
     this.socket.on('orderStatusUpdated', (updatedOrder) => {
       console.log('🔔 Live Order Status Update Received:', updatedOrder);
       this.orders = this.orders.map((o) => (o._id === updatedOrder._id ? updatedOrder : o));
     });
 
+    // 🚀 LISTEN TO NEW INCOMING ORDERS:
+    // When any order is placed, prepend to orders array live!
     this.socket.on('newOrder', (newOrder) => {
       console.log('🔔 Live New Order Received:', newOrder);
       this.orders = [newOrder, ...this.orders];
     });
   },
+
   methods: {
+    // API: Fetch Restaurants
     async fetchRestaurants() {
       try {
         const res = await fetch('/api/restaurants');
         this.restaurants = await res.json();
+        if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
+          this.adminSelectedRestaurantId = this.restaurants[0]._id;
+          this.fetchAdminMenu();
+        }
       } catch (err) {
-        console.error('Failed to load restaurants:', err);
+        console.error('Error fetching restaurants:', err);
       }
     },
+
+    // API: Fetch Orders
+    async fetchOrders() {
+      try {
+        const res = await fetch('/api/orders');
+        this.orders = await res.json();
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+      }
+    },
+
+    // Select restaurant to browse menu
     async selectRestaurant(restaurant) {
       this.selectedRestaurant = restaurant;
       this.currentView = 'menu';
-      this.activeCategory = 'All';
-      this.vegFilter = 'all';
       try {
         const res = await fetch(`/api/restaurants/${restaurant._id}/menu`);
         this.menuItems = await res.json();
       } catch (err) {
-        console.error('Failed to load menu items:', err);
+        console.error('Error fetching menu:', err);
       }
     },
-    getItemQty(foodId) {
-      const it = this.cart.find((i) => i._id === foodId);
-      return it ? it.quantity : 0;
-    },
-    addToCart(item) {
-      if (this.cartRestaurant && this.cartRestaurant._id !== this.selectedRestaurant._id) {
-        if (!confirm('Cart contains items from another restaurant. Clear cart and start new order?')) {
-          return;
-        }
-        this.cart = [];
-      }
-      this.cartRestaurant = this.selectedRestaurant;
 
-      const existing = this.cart.find((i) => i._id === item._id);
-      if (existing) {
-        existing.quantity += 1;
-      } else {
-        this.cart.push({ ...item, quantity: 1 });
-      }
+    // Cart: Get item quantity
+    getItemQuantity(dishId) {
+      const found = this.cart.find((c) => c._id === dishId);
+      return found ? found.quantity : 0;
     },
-    updateQty(foodId, delta) {
-      const item = this.cart.find((i) => i._id === foodId);
-      if (!item) return;
 
-      item.quantity += delta;
-      if (item.quantity <= 0) {
-        this.cart = this.cart.filter((i) => i._id !== foodId);
-      }
-      if (this.cart.length === 0) {
-        this.cartRestaurant = null;
-      }
-    },
-    async placeOrder() {
-      if (this.cart.length === 0) return;
-      if (!this.customer.name || !this.customer.phone || !this.customer.address) {
-        alert('Please fill out all delivery details.');
+    // Cart: Add to cart
+    addToCart(dish, restaurant) {
+      if (this.cartRestaurant && this.cartRestaurant._id !== restaurant._id && this.cart.length > 0) {
+        const ok = window.confirm(
+          `Your cart contains items from "${this.cartRestaurant.name}". Reset cart for "${restaurant.name}"?`
+        );
+        if (!ok) return;
+        this.cart = [{ ...dish, quantity: 1 }];
+        this.cartRestaurant = restaurant;
         return;
       }
+      this.cartRestaurant = restaurant;
+      const found = this.cart.find((i) => i._id === dish._id);
+      if (found) {
+        found.quantity += 1;
+      } else {
+        this.cart.push({ ...dish, quantity: 1 });
+      }
+    },
 
-      const deliveryFee = 30;
-      const gst = Math.round(this.cartTotal * 0.05);
-      const grandTotal = this.cartTotal + deliveryFee + gst;
+    // Cart: Update quantity
+    updateCartQuantity(dishId, newQty) {
+      if (newQty <= 0) {
+        this.cart = this.cart.filter((i) => i._id !== dishId);
+        if (this.cart.length === 0) this.cartRestaurant = null;
+      } else {
+        const found = this.cart.find((i) => i._id === dishId);
+        if (found) found.quantity = newQty;
+      }
+    },
+
+    // Cart: Place Order
+    async placeOrder() {
+      if (this.cart.length === 0) return;
+      const grandTotal = this.cartTotal + 30 + Math.round(this.cartTotal * 0.05);
 
       try {
         const res = await fetch('/api/orders', {
@@ -188,10 +233,97 @@ createApp({
           this.cart = [];
           this.cartRestaurant = null;
           this.isCartOpen = false;
-          this.currentView = 'orders';
+          this.currentView = 'orders'; // Jump to real-time tracking
         }
       } catch (err) {
         alert('Failed to place order.');
+      }
+    },
+
+    // Stepper Helper
+    getStatusStepIndex(status) {
+      const stages = ['Order Placed', 'Preparing', 'Out for Delivery', 'Delivered'];
+      return stages.indexOf(status);
+    },
+
+    // Admin: Fetch menu for selected restaurant
+    async fetchAdminMenu() {
+      if (!this.adminSelectedRestaurantId) return;
+      try {
+        const res = await fetch(`/api/restaurants/${this.adminSelectedRestaurantId}/menu`);
+        this.adminMenuItems = await res.json();
+      } catch (err) {
+        console.error('Error fetching admin menu:', err);
+      }
+    },
+
+    // Admin: Update order status (triggers real-time socket event)
+    async updateOrderStatus(orderId, newStatus) {
+      try {
+        const res = await fetch(`/api/orders/${orderId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          this.orders = this.orders.map((o) => (o._id === updated._id ? updated : o));
+        }
+      } catch (err) {
+        console.error('Error updating status:', err);
+      }
+    },
+
+    // Admin: Toggle dish in-stock / out-of-stock
+    async toggleStock(dishId) {
+      try {
+        const res = await fetch(`/api/menu/${dishId}/toggle`, { method: 'PATCH' });
+        if (res.ok) {
+          const updated = await res.json();
+          this.adminMenuItems = this.adminMenuItems.map((d) => (d._id === dishId ? updated : d));
+        }
+      } catch (err) {
+        console.error('Error toggling stock:', err);
+      }
+    },
+
+    // Admin: Delete dish
+    async deleteDish(dishId) {
+      if (!confirm('Delete this dish?')) return;
+      try {
+        const res = await fetch(`/api/menu/${dishId}`, { method: 'DELETE' });
+        if (res.ok) {
+          this.adminMenuItems = this.adminMenuItems.filter((d) => d._id !== dishId);
+        }
+      } catch (err) {
+        console.error('Error deleting dish:', err);
+      }
+    },
+
+    // Admin: Add new dish
+    async addNewDish() {
+      if (!this.newDish.name || !this.newDish.price) return;
+      try {
+        const res = await fetch(`/api/restaurants/${this.adminSelectedRestaurantId}/menu`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: this.newDish.name,
+            price: Number(this.newDish.price),
+            category: this.newDish.category,
+            isVeg: this.newDish.isVeg,
+            description: this.newDish.description || 'Delicious dish',
+          }),
+        });
+        if (res.ok) {
+          const created = await res.json();
+          this.adminMenuItems.push(created);
+          this.newDish.name = '';
+          this.newDish.price = '';
+          this.newDish.description = '';
+        }
+      } catch (err) {
+        console.error('Error adding dish:', err);
       }
     },
   },
