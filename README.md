@@ -18,10 +18,9 @@ Assignment/
 │       └── style.css  # Dedicated frontend styles & transitions
 │
 ├── backend/
-│   └── server.js      # Express backend, MongoDB Models, Socket.io Real-Time, REST APIs
+│   └── server.js      # Express backend, MongoDB Models, REST APIs
 │
-├── server.js          # Root launcher forwarding to backend/server.js
-├── package.json       # Dependencies (express, mongoose, socket.io, cors)
+├── package.json       # Dependencies (express, mongoose, cors)
 ├── README.md          # Setup instructions
 └── VIVA_GUIDE.md      # Line-by-line explanation guide for your professor
 ```
@@ -35,8 +34,7 @@ Assignment/
 | **Frontend** | Vue.js (100% pure JavaScript file `frontend/app.js`) |
 | **Styling** | Tailwind CSS & custom CSS (`frontend/css/style.css`) |
 | **Backend** | Node.js with Express JS (`backend/server.js`) |
-| **Real-Time** | Socket.io (instant order tracking & kitchen notifications) |
-| **Database** | MongoDB with Mongoose (Strict Database - No In-Memory Fallbacks) |
+| **Database** | MongoDB with Mongoose (Strict Database) |
 
 ---
 
@@ -98,10 +96,10 @@ Assignment/
 1. **Browse Restaurants**: Search by name or filter by cuisine (*Burgers, Pizza, Biryani, Snacks*).
 2. **Food Menu**: Filter Pure Veg vs Non-Veg dishes with price and descriptions.
 3. **Cart & Checkout**: Dynamic quantity controls `[-] qty [+]` with subtotal, 5% GST, and delivery charges.
-4. **Live Order Tracking**: Real-time 4-stage stepper (`Order Placed` -> `Preparing` -> `Out for Delivery` -> `Delivered`).
+4. **Order Tracking**: 4-stage stepper (`Order Placed` -> `Preparing` -> `Out for Delivery` -> `Delivered`) isolated per customer account.
 5. **Restaurant Portal (Admin)**:
-   - Live incoming kitchen orders screen with one-click status buttons.
-   - Advance status -> customer's screen updates **instantly via Socket.io** without page refresh!
+   - Incoming kitchen orders screen with one-click status buttons.
+   - Advance status -> customer's order updates via REST API.
    - Manage menu: toggle In-Stock / Out-of-Stock, delete dishes, or add new dishes.
 
 ---
