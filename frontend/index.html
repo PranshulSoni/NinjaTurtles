@@ -433,6 +433,9 @@
                     <p>{{ stage }}</p>
                   </div>
                 </div>
+                <p v-if="order.status === 'Out for Delivery'" class="mt-2 text-center text-xs text-amber-700 font-medium">
+                  Rider is on the way. Arriving in ~30 seconds...
+                </p>
               </div>
 
               <!-- Order Details -->
