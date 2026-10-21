@@ -37,6 +37,7 @@ createApp({
 
       // Database & Socket Status
       isDbConnected: true,
+      dbName: 'food_delivery_db',
       isSocketConnected: false,
       socket: null,
 
@@ -183,6 +184,7 @@ createApp({
         const res = await fetch('/api/health');
         const data = await res.json();
         this.isDbConnected = !!data.dbConnected;
+        if (data.database) this.dbName = data.database;
       } catch (e) {
         this.isDbConnected = false;
       }

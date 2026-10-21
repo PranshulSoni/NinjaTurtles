@@ -32,11 +32,11 @@ Assignment/
 
 | Component | Technology |
 |---|---|
-| **Frontend** | Vue.js (100% pure JavaScript file `public/app.js`) |
-| **Styling** | Tailwind CSS (simple student-level styling) |
-| **Backend** | Node.js with Express JS (`server.js`) |
+| **Frontend** | Vue.js (100% pure JavaScript file `frontend/app.js`) |
+| **Styling** | Tailwind CSS & custom CSS (`frontend/css/style.css`) |
+| **Backend** | Node.js with Express JS (`backend/server.js`) |
 | **Real-Time** | Socket.io (instant order tracking & kitchen notifications) |
-| **Database** | MongoDB with Mongoose |
+| **Database** | MongoDB with Mongoose (Strict Database - No In-Memory Fallbacks) |
 
 ---
 
@@ -58,6 +58,38 @@ Assignment/
    http://localhost:5000
    ```
    *(Express serves both the Vue frontend and the real-time API on port 5000)*
+
+---
+
+## MongoDB Database: Where and How It Is Created
+
+1. **Database Name & Connection URI**:
+   - URI: `mongodb://127.0.0.1:27017/food_delivery_db`
+   - Database: `food_delivery_db`
+
+2. **How MongoDB Creates Databases**:
+   - MongoDB creates databases and collections **lazily/on-the-fly**.
+   - As soon as the backend connects and calls `User.create()` or `Restaurant.create()`, MongoDB automatically allocates the database `food_delivery_db` and collections (`restaurants`, `fooditems`, `orders`, `users`).
+   - If a database or collection does not exist yet, MongoDB creates it instantly upon the first insert without requiring manual table creation.
+
+3. **Where Data Lives on the Machine**:
+   - The container `local-mongodb` mounts persistent volume storage at `/data/db`.
+   - On the host filesystem, it resides in the container storage volume directory:
+     `/home/pranshulsoni/.local/share/containers/storage/volumes/.../_data`
+
+4. **How to View and Query the Database**:
+   ```bash
+   # Connect to mongosh inside the container:
+   podman exec -it local-mongodb mongosh food_delivery_db
+
+   # Inspect collections:
+   show collections
+
+   # View records:
+   db.restaurants.find().pretty()
+   db.users.find()
+   db.orders.find()
+   ```
 
 ---
 
