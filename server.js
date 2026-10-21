@@ -515,6 +515,11 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
   res.json({ user: req.user });
 });
 
+// POST /api/auth/logout -> Session logout endpoint
+app.post('/api/auth/logout', (req, res) => {
+  res.json({ message: 'Session logged out successfully' });
+});
+
 // GET /api/auth/demo-users -> Quick list of demo accounts for presentation
 app.get('/api/auth/demo-users', (req, res) => {
   res.json(
