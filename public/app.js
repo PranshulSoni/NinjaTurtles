@@ -7,8 +7,8 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
-      // Navigation
-      currentView: 'restaurants', // 'restaurants', 'menu', 'orders', 'restaurant-admin'
+      // Navigation (Defaults to 'login' gate until authenticated)
+      currentView: 'login', // 'login', 'restaurants', 'menu', 'orders', 'restaurant-admin'
 
       // Restaurant Catalogue Data
       restaurants: [],
@@ -133,10 +133,15 @@ createApp({
         // Direct to appropriate initial view based on role
         if (this.currentUser.role === 'admin') {
           this.currentView = 'restaurant-admin';
+        } else {
+          this.currentView = 'restaurants';
         }
+      } else {
+        this.currentView = 'login';
       }
     } catch (e) {
       console.warn('Could not restore auth session:', e);
+      this.currentView = 'login';
     }
 
     // 1. Fetch initial restaurants and orders
@@ -497,21 +502,22 @@ createApp({
     },
 
     handleLogout() {
+      fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
       this.currentUser = null;
       this.authToken = '';
       localStorage.removeItem('ninja_user');
       localStorage.removeItem('ninja_token');
-      this.currentView = 'restaurants';
+      this.currentView = 'login';
       this.cart = [];
     },
 
     navigateWithRoleCheck(view) {
+      if (!this.currentUser) {
+        this.currentView = 'login';
+        this.authError = 'Please sign in to access the platform.';
+        return;
+      }
       if (view === 'restaurant-admin') {
-        if (!this.currentUser) {
-          this.authError = 'Access Denied: Please log in with an Admin account to access the Restaurant Portal.';
-          this.openAuthModal('login');
-          return;
-        }
         if (this.currentUser.role !== 'admin') {
           this.authError = 'Role Restriction: Your account has Customer privileges. Please log in as an Admin.';
           this.openAuthModal('login');
