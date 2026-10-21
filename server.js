@@ -190,6 +190,27 @@ let fallbackFoodItems = [
 
 let fallbackOrders = [];
 
+let fallbackUsers = [
+  {
+    _id: '6ad789e72c06223043482a01',
+    name: 'Rahul Sharma',
+    email: 'user@ninjafood.com',
+    password: 'user123',
+    role: 'customer',
+    phone: '9825123456',
+    address: 'Flat 402, Green Avenue, Nirma Campus, Ahmedabad',
+  },
+  {
+    _id: '6ad789e72c06223043482a02',
+    name: 'Chef Vikram (Admin)',
+    email: 'admin@ninjafood.com',
+    password: 'admin123',
+    role: 'admin',
+    phone: '9876543210',
+    address: 'Ninja Kitchen HQ, Vastrapur, Ahmedabad',
+  },
+];
+
 // ==========================================
 // 5. CONNECT TO MONGODB WITH AUTO-RETRY LOOP
 // ==========================================
@@ -280,6 +301,19 @@ const orderSchema = new mongoose.Schema(
 );
 const Order = mongoose.model('Order', orderSchema);
 
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true },
+    role: { type: String, enum: ['customer', 'admin'], default: 'customer' },
+    phone: { type: String, default: '9825123456' },
+    address: { type: String, default: 'Ahmedabad' },
+  },
+  { timestamps: true }
+);
+const User = mongoose.model('User', userSchema);
+
 // ==========================================
 // 7. REAL-TIME SOCKET.IO HANDLERS
 // ==========================================
@@ -291,8 +325,207 @@ io.on('connection', (socket) => {
 });
 
 // ==========================================
-// 8. REST API ENDPOINTS (WITH RESILIENT FALLBACK)
+// 8. AUTHENTICATION & ROLE-BASED ACCESS CONTROL (RBAC)
 // ==========================================
+
+// Token generation (standard base64 JSON payload with timestamp)
+function generateToken(user) {
+  const payload = {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    phone: user.phone || '',
+    address: user.address || '',
+    issuedAt: Date.now(),
+  };
+  return Buffer.from(JSON.stringify(payload)).toString('base64');
+}
+
+// Token verification
+function verifyToken(token) {
+  try {
+    return JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+  } catch (e) {
+    return null;
+  }
+}
+
+// Middleware: Authenticate Session Token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Authentication required. No token provided.' });
+  }
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return res.status(401).json({ error: 'Invalid or expired session token. Please log in.' });
+  }
+  req.user = decoded;
+  next();
+}
+
+// RBAC Middleware: Require Role
+function authorizeRole(allowedRoles) {
+  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: `Access Denied: Requires ${roles.join(' or ')} privileges.`,
+      });
+    }
+    next();
+  };
+}
+
+// RBAC Guard for Admin Endpoints: Validates role if token is sent
+function requireAdminIfAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (authHeader) {
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const decoded = verifyToken(token);
+    if (!decoded || decoded.role !== 'admin') {
+      return res.status(403).json({ error: 'Access Denied: Only Admin role can perform this action.' });
+    }
+    req.user = decoded;
+  }
+  next();
+}
+
+// ==========================================
+// 9. REST API ENDPOINTS (WITH RESILIENT FALLBACK)
+// ==========================================
+
+// --- AUTHENTICATION ROUTES ---
+
+// POST /api/auth/login -> Sign in as Customer or Restaurant Admin
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    let user;
+
+    if (isDbConnected && mongoose.connection.readyState === 1) {
+      user = await User.findOne({ email: cleanEmail });
+    }
+    if (!user) {
+      user = fallbackUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+    }
+
+    if (!user || user.password !== password) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const token = generateToken(user);
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        address: user.address,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/register -> Sign up new user with selected role
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, email, password, role = 'customer', phone = '', address = '' } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanRole = role === 'admin' ? 'admin' : 'customer';
+
+    if (isDbConnected && mongoose.connection.readyState === 1) {
+      const existing = await User.findOne({ email: cleanEmail });
+      if (existing) {
+        return res.status(400).json({ error: 'An account with this email already exists.' });
+      }
+      const newUser = await User.create({
+        name,
+        email: cleanEmail,
+        password,
+        role: cleanRole,
+        phone,
+        address,
+      });
+      const token = generateToken(newUser);
+      return res.status(201).json({
+        message: 'Account created successfully',
+        token,
+        user: {
+          id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          phone: newUser.phone,
+          address: newUser.address,
+        },
+      });
+    }
+
+    // Fallback store
+    if (fallbackUsers.some((u) => u.email.toLowerCase() === cleanEmail)) {
+      return res.status(400).json({ error: 'An account with this email already exists.' });
+    }
+    const fallbackUser = {
+      _id: 'usr_' + Date.now(),
+      name,
+      email: cleanEmail,
+      password,
+      role: cleanRole,
+      phone,
+      address,
+    };
+    fallbackUsers.push(fallbackUser);
+    const token = generateToken(fallbackUser);
+    res.status(201).json({
+      message: 'Account created successfully',
+      token,
+      user: {
+        id: fallbackUser._id,
+        name: fallbackUser.name,
+        email: fallbackUser.email,
+        role: fallbackUser.role,
+        phone: fallbackUser.phone,
+        address: fallbackUser.address,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/auth/me -> Fetch current session user from token
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+  res.json({ user: req.user });
+});
+
+// GET /api/auth/demo-users -> Quick list of demo accounts for presentation
+app.get('/api/auth/demo-users', (req, res) => {
+  res.json(
+    fallbackUsers.map((u) => ({
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      password: u.password,
+    }))
+  );
+});
 
 // GET /api/health -> Check database status & server health
 app.get('/api/health', (req, res) => {
@@ -333,8 +566,8 @@ app.get('/api/restaurants/:id/menu', async (req, res) => {
   }
 });
 
-// POST /api/restaurants/:id/menu -> Add a new dish to restaurant menu
-app.post('/api/restaurants/:id/menu', async (req, res) => {
+// POST /api/restaurants/:id/menu -> Add a new dish to restaurant menu (Admin protected)
+app.post('/api/restaurants/:id/menu', requireAdminIfAuth, async (req, res) => {
   try {
     if (isDbConnected && mongoose.connection.readyState === 1) {
       const item = new FoodItem({ ...req.body, restaurantId: req.params.id });
@@ -353,8 +586,8 @@ app.post('/api/restaurants/:id/menu', async (req, res) => {
   }
 });
 
-// PATCH /api/menu/:id/toggle -> Toggle food in-stock / out-of-stock
-app.patch('/api/menu/:id/toggle', async (req, res) => {
+// PATCH /api/menu/:id/toggle -> Toggle food in-stock / out-of-stock (Admin protected)
+app.patch('/api/menu/:id/toggle', requireAdminIfAuth, async (req, res) => {
   try {
     if (isDbConnected && mongoose.connection.readyState === 1) {
       const item = await FoodItem.findById(req.params.id);
@@ -375,8 +608,8 @@ app.patch('/api/menu/:id/toggle', async (req, res) => {
   }
 });
 
-// DELETE /api/menu/:id -> Delete dish from menu
-app.delete('/api/menu/:id', async (req, res) => {
+// DELETE /api/menu/:id -> Delete dish from menu (Admin protected)
+app.delete('/api/menu/:id', requireAdminIfAuth, async (req, res) => {
   try {
     if (isDbConnected && mongoose.connection.readyState === 1) {
       const deleted = await FoodItem.findByIdAndDelete(req.params.id);
@@ -457,6 +690,13 @@ app.patch('/api/orders/:id/status', async (req, res) => {
 // ==========================================
 async function seedInitialDataIfEmpty() {
   try {
+    const userCount = await User.countDocuments();
+    if (userCount === 0) {
+      console.log('👤 Seeding sample demo users (customer and admin) into MongoDB...');
+      await User.create(fallbackUsers);
+      console.log('✅ Demo users seeded successfully into MongoDB!');
+    }
+
     const count = await Restaurant.countDocuments();
     if (count > 0) return; // Already has data
 
