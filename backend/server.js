@@ -74,6 +74,17 @@ async function connectDB() {
 }
 connectDB();
 
+// Middleware: Guard against requests when database is disconnected
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') return next();
+  if (!isConnected || !usersCol) {
+    return res.status(503).json({
+      error: 'Database is not connected. Please configure MONGO_URI (MongoDB Atlas) in Render dashboard.',
+    });
+  }
+  next();
+});
+
 // 3. Authentication Endpoints
 app.post('/api/auth/login', async (req, res) => {
   try {
