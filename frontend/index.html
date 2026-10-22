@@ -49,7 +49,7 @@
 
             <!-- Admin Tabs -->
             <template v-else-if="currentUser.role === 'admin'">
-              <button @click="navigateWithRoleCheck('restaurant-admin')" :class="[
+              <button v-permission="'admin'" @click="navigateWithRoleCheck('restaurant-admin')" :class="[
                   'px-3 py-1.5 rounded text-sm font-medium border',
                   currentView === 'restaurant-admin'
                     ? 'bg-purple-600 text-white border-purple-600'
@@ -75,9 +75,9 @@
             <div v-if="currentUser"
               class="flex items-center gap-2 bg-gray-50 border border-gray-300 rounded px-2.5 py-1 text-xs">
               <span class="font-bold text-gray-900">{{ currentUser.name }}</span>
-              <span
+              <span v-tooltip="'Account Role: ' + currentUser.role"
                 :class="currentUser.role === 'admin' ? 'bg-purple-100 text-purple-800 border-purple-300' : 'bg-blue-100 text-blue-800 border-blue-300'"
-                class="border text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
+                class="border text-[10px] font-bold px-1.5 py-0.5 rounded uppercase cursor-help">
                 {{ currentUser.role }}
               </span>
               <button @click="handleLogout" class="text-gray-400 hover:text-red-600 font-bold ml-1 text-xs"
@@ -221,12 +221,12 @@
             <div v-for="restaurant in filteredRestaurants" :key="restaurant._id"
               class="bg-white border border-gray-300 rounded overflow-hidden flex flex-col justify-between hover:border-gray-400">
               <div>
-                <img :src="restaurant.imageUrl" :alt="restaurant.name" @error="handleRestaurantImageError"
+                <img :src="restaurant.imageUrl" :alt="restaurant.name" v-img-fallback="'restaurant'" @error="handleRestaurantImageError"
                   class="w-full h-40 object-cover bg-gray-200" />
                 <div class="p-3">
                   <div class="flex items-center justify-between">
                     <h3 class="font-bold text-gray-900 text-base">{{ restaurant.name }}</h3>
-                    <span class="bg-green-100 text-green-800 text-xs font-bold px-1.5 py-0.5 rounded">
+                    <span v-tooltip="'Customer review rating out of 5.0'" class="bg-green-100 text-green-800 text-xs font-bold px-1.5 py-0.5 rounded cursor-help">
                       Rating: {{ restaurant.rating }}
                     </span>
                   </div>
@@ -332,7 +332,7 @@
               </div>
 
               <div class="flex items-center gap-3 self-end sm:self-center">
-                <img :src="item.imageUrl" :alt="item.name" @error="handleFoodImageError"
+                <img :src="item.imageUrl" :alt="item.name" v-img-fallback="'food'" @error="handleFoodImageError"
                   class="w-20 h-20 object-cover rounded border border-gray-200" />
                 <div>
                   <span v-if="!item.isAvailable"
@@ -415,8 +415,8 @@
                     Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
                   </p>
                 </div>
-                <span class="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded">
-                  Status: {{ order.status }}
+                <span v-status-badge="order.status">
+                  {{ order.status }}
                 </span>
               </div>
 
@@ -548,7 +548,7 @@
                     <span class="text-xs text-gray-500 ml-2">Customer: {{ order.customerName }} ({{ order.customerPhone
                       }})</span>
                   </div>
-                  <span class="bg-gray-100 text-gray-800 text-xs font-bold px-2 py-0.5 rounded border border-gray-300">
+                  <span v-status-badge="order.status">
                     {{ order.status }}
                   </span>
                 </div>
@@ -599,11 +599,11 @@
                     <p class="text-gray-500">₹{{ dish.price }} • {{ dish.category }}</p>
                   </div>
                   <div class="flex items-center gap-2">
-                    <button @click="toggleStock(dish._id)"
+                    <button v-permission="'admin'" @click="toggleStock(dish._id)"
                       :class="['px-2 py-1 rounded font-bold border', dish.isAvailable ? 'bg-green-100 text-green-800 border-green-300' : 'bg-red-100 text-red-800 border-red-300']">
                       {{ dish.isAvailable ? 'In Stock' : 'Out of Stock' }}
                     </button>
-                    <button @click="deleteDish(dish._id)"
+                    <button v-permission="'admin'" @click="deleteDish(dish._id)"
                       class="bg-gray-100 hover:bg-red-50 text-red-600 border border-gray-300 px-2 py-1 rounded font-semibold">
                       Delete
                     </button>
@@ -612,7 +612,7 @@
               </div>
 
               <!-- Add Dish Form (1 col) -->
-              <div class="bg-white border border-gray-300 rounded p-4 text-xs h-fit">
+              <div v-permission="'admin'" class="bg-white border border-gray-300 rounded p-4 text-xs h-fit">
                 <h3 class="font-bold text-gray-800 text-sm mb-3">Add New Dish</h3>
                 <form @submit.prevent="addNewDish" class="space-y-3">
                   <div>
@@ -832,7 +832,7 @@
       <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
         <span>Ninja Turtles Food Ordering Platform</span>
         <div class="flex items-center gap-3">
-          <span class="flex items-center gap-1.5">
+          <span class="flex items-center gap-1.5" v-tooltip="'Live connectivity to MongoDB database cluster'">
             <span class="inline-block w-2 h-2 rounded-full"
               :class="isDbConnected ? 'bg-green-500' : 'bg-red-500'"></span>
             <span>MongoDB: {{ isDbConnected ? dbName + ' (Active)' : 'Disconnected' }}</span>
