@@ -73,18 +73,15 @@ connectDB();
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const identifier = (email || '').trim();
-    if (!identifier || !password) return res.status(400).json({ error: 'Email or username and password required' });
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
 
-    const user = await usersCol.findOne({
-      $or: [
-        { email: identifier.toLowerCase() },
-        { name: new RegExp(`^${identifier}$`, 'i') },
-      ],
-    });
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await usersCol.findOne({ email: cleanEmail });
 
     if (!user || user.password !== password) {
-      return res.status(401).json({ error: 'Invalid email/username or password' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     res.json({
