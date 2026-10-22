@@ -192,59 +192,6 @@ app.get('/api/restaurants/:id/menu', async (req, res) => {
   }
 });
 
-app.get('/api/fooditems', async (req, res) => {
-  try {
-    let query = {};
-    if (req.query.restaurantId) {
-      const restId = req.query.restaurantId;
-      const oid = toObjectId(restId);
-      if (oid) {
-        query = { $or: [{ restaurantId: oid }, { restaurantId: restId }] };
-      } else {
-        query = { restaurantId: restId };
-      }
-    }
-    const items = await foodItemsCol.find(query).toArray();
-    res.json(items);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/fooditems', async (req, res) => {
-  try {
-    let isVeg = true;
-    if (req.body.isVeg !== undefined) {
-      isVeg = req.body.isVeg;
-    }
-
-    let isAvailable = true;
-    if (req.body.isAvailable !== undefined) {
-      isAvailable = req.body.isAvailable;
-    }
-
-    let restaurantId = req.body.restaurantId;
-    const parsedRestId = toObjectId(restaurantId);
-    if (parsedRestId) {
-      restaurantId = parsedRestId;
-    }
-
-    const itemData = {
-      ...req.body,
-      restaurantId,
-      isVeg,
-      isAvailable,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    const result = await foodItemsCol.insertOne(itemData);
-    itemData._id = result.insertedId;
-    res.status(201).json(itemData);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
 app.post('/api/restaurants/:id/menu', async (req, res) => {
   try {
     let isVeg = true;
@@ -279,7 +226,7 @@ app.post('/api/restaurants/:id/menu', async (req, res) => {
   }
 });
 
-app.patch(['/api/fooditems/:id/toggle', '/api/menu/:id/toggle'], async (req, res) => {
+app.patch('/api/menu/:id/toggle', async (req, res) => {
   try {
     const filter = byId(req.params.id);
     const item = await foodItemsCol.findOne(filter);
@@ -293,7 +240,7 @@ app.patch(['/api/fooditems/:id/toggle', '/api/menu/:id/toggle'], async (req, res
   }
 });
 
-app.delete(['/api/fooditems/:id', '/api/menu/:id'], async (req, res) => {
+app.delete('/api/menu/:id', async (req, res) => {
   try {
     const result = await foodItemsCol.deleteOne(byId(req.params.id));
     if (result.deletedCount === 0) return res.status(404).json({ error: 'Dish not found' });
