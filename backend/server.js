@@ -59,7 +59,7 @@ function generateToken(user) {
 async function connectDB() {
   try {
     await client.connect();
-    db = client.db('food_delivery_db');
+    db = client.db(process.env.DB_NAME || 'food_delivery_db');
     restaurantsCol = db.collection('restaurants');
     foodItemsCol = db.collection('fooditems');
     ordersCol = db.collection('orders');
@@ -502,4 +502,7 @@ async function seedInitialData() {
 }
 
 // 8. Start Server
-app.listen(PORT, () => console.log(`Food Delivery Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  const host = process.env.RENDER ? 'https://ninjaturtles.onrender.com' : `http://localhost:${PORT}`;
+  console.log(`Food Delivery Server running on ${host}`);
+});
