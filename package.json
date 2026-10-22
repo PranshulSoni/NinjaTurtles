@@ -4,7 +4,8 @@
   "description": "Full Stack Food Ordering Platform (Vue.js + Node.js + Express + MongoDB)",
   "main": "backend/server.js",
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "deploy": "TREE=$(git write-tree --prefix=frontend/) && COMMIT=$(git commit-tree $TREE -m 'Deploy frontend to gh-pages branch') && git update-ref refs/heads/gh-pages $COMMIT && git push origin gh-pages --force"
   },
   "dependencies": {
     "cors": "^2.8.5",
