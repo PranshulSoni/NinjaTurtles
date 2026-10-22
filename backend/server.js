@@ -60,7 +60,7 @@ async function connectDB() {
     ordersCol = db.collection('orders');
     usersCol = db.collection('users');
     isConnected = true;
-    console.log(`Connected to MongoDB via MongoClient: ${MONGO_URI}`);
+    console.log('Connected to MongoDB via MongoClient');
     await seedInitialData();
   } catch (err) {
     isConnected = false;
