@@ -36,11 +36,6 @@ function toObjectId(id) {
   return null;
 }
 
-// Helper: Query by _id accepting both ObjectId and String
-function byId(id) {
-  const oid = toObjectId(id);
-  return oid ? { _id: oid } : { _id: id };
-}
 
 // Helper: Token Generator
 function generateToken(user) {
@@ -74,17 +69,6 @@ async function connectDB() {
 }
 connectDB();
 
-// Middleware: Guard against requests when database is disconnected
-app.use('/api', (req, res, next) => {
-  if (req.path === '/health') return next();
-  if (!isConnected || !usersCol) {
-    return res.status(503).json({
-      error: 'Database is not connected. Please configure MONGO_URI (MongoDB Atlas) in Render dashboard.',
-    });
-  }
-  next();
-});
-
 // 3. Authentication Endpoints
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -99,12 +83,7 @@ app.post('/api/auth/login', async (req, res) => {
       ],
     });
 
-    const isPasswordValid =
-      user &&
-      (user.password === password ||
-        (user.role === 'admin' && (password === 'admin123' || password === 'admin@zomato.com')));
-
-    if (!user || !isPasswordValid) {
+    if (!user || user.password !== password) {
       return res.status(401).json({ error: 'Invalid email/username or password' });
     }
 
