@@ -37,6 +37,16 @@ function toObjectId(id) {
 }
 
 
+// Helper: Query by _id accepting both ObjectId and String
+function byId(id) {
+  const oid = toObjectId(id);
+  if (oid) {
+    return { _id: oid };
+  } else {
+    return { _id: id };
+  }
+}
+
 // Helper: Token Generator
 function generateToken(user) {
   return Buffer.from(
@@ -203,11 +213,27 @@ app.get('/api/fooditems', async (req, res) => {
 
 app.post('/api/fooditems', async (req, res) => {
   try {
+    let isVeg = true;
+    if (req.body.isVeg !== undefined) {
+      isVeg = req.body.isVeg;
+    }
+
+    let isAvailable = true;
+    if (req.body.isAvailable !== undefined) {
+      isAvailable = req.body.isAvailable;
+    }
+
+    let restaurantId = req.body.restaurantId;
+    const parsedRestId = toObjectId(restaurantId);
+    if (parsedRestId) {
+      restaurantId = parsedRestId;
+    }
+
     const itemData = {
       ...req.body,
-      restaurantId: toObjectId(req.body.restaurantId) || req.body.restaurantId,
-      isVeg: req.body.isVeg !== undefined ? req.body.isVeg : true,
-      isAvailable: req.body.isAvailable !== undefined ? req.body.isAvailable : true,
+      restaurantId,
+      isVeg,
+      isAvailable,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -221,11 +247,27 @@ app.post('/api/fooditems', async (req, res) => {
 
 app.post('/api/restaurants/:id/menu', async (req, res) => {
   try {
+    let isVeg = true;
+    if (req.body.isVeg !== undefined) {
+      isVeg = req.body.isVeg;
+    }
+
+    let isAvailable = true;
+    if (req.body.isAvailable !== undefined) {
+      isAvailable = req.body.isAvailable;
+    }
+
+    let restaurantId = req.params.id;
+    const parsedRestId = toObjectId(restaurantId);
+    if (parsedRestId) {
+      restaurantId = parsedRestId;
+    }
+
     const itemData = {
       ...req.body,
-      restaurantId: toObjectId(req.params.id) || req.params.id,
-      isVeg: req.body.isVeg !== undefined ? req.body.isVeg : true,
-      isAvailable: req.body.isAvailable !== undefined ? req.body.isAvailable : true,
+      restaurantId,
+      isVeg,
+      isAvailable,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -317,7 +359,12 @@ app.patch('/api/orders/:id/status', async (req, res) => {
       { $set: updateData },
       { returnDocument: 'after' }
     );
-    const order = result && result.value !== undefined ? result.value : result;
+    let order;
+    if (result && result.value !== undefined) {
+      order = result.value;
+    } else {
+      order = result;
+    }
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
     // Auto-advance: exactly 30 seconds after becoming "Out for Delivery", automatically mark as "Delivered"
@@ -489,13 +536,19 @@ async function seedInitialData() {
         imageUrl: r.imageUrl,
       });
       const restId = restInsert.insertedId;
-      const dishes = r.dishes.map((d) => ({
-        ...d,
-        restaurantId: restId,
-        imageUrl: r.imageUrl,
-        isVeg: d.isVeg !== undefined ? d.isVeg : true,
-        isAvailable: true,
-      }));
+      const dishes = r.dishes.map((d) => {
+        let isVeg = true;
+        if (d.isVeg !== undefined) {
+          isVeg = d.isVeg;
+        }
+        return {
+          ...d,
+          restaurantId: restId,
+          imageUrl: r.imageUrl,
+          isVeg,
+          isAvailable: true,
+        };
+      });
       await foodItemsCol.insertMany(dishes);
     }
   } catch (err) {
@@ -505,6 +558,11 @@ async function seedInitialData() {
 
 // 8. Start Server
 app.listen(PORT, () => {
-  const host = process.env.RENDER ? 'https://ninjaturtles.onrender.com' : `http://localhost:${PORT}`;
+  let host;
+  if (process.env.RENDER) {
+    host = 'https://ninjaturtles.onrender.com';
+  } else {
+    host = `http://localhost:${PORT}`;
+  }
   console.log(`Food Delivery Server running on ${host}`);
 });
