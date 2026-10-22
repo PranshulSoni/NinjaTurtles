@@ -1,6 +1,10 @@
 
 
 const { createApp } = Vue;
+const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  ? ''
+  : 'https://ninjaturtles.onrender.com';
+const apiUrl = (path) => `${API_BASE}${path}`;
 
 const app = createApp({
   data() {
@@ -170,7 +174,7 @@ const app = createApp({
     // API: Fetch Restaurants
     async checkDbHealth() {
       try {
-        const res = await fetch('/api/health');
+        const res = await fetch(apiUrl('/api/health'));
         const data = await res.json();
         this.isDbConnected = !!data.dbConnected;
         if (data.database) this.dbName = data.database;
@@ -180,7 +184,7 @@ const app = createApp({
     },
     async fetchRestaurants() {
       try {
-        const res = await fetch('/api/restaurants');
+        const res = await fetch(apiUrl('/api/restaurants'));
         const data = await res.json();
         this.restaurants = Array.isArray(data) ? data : [];
         if (this.currentUser?.role === 'admin') {
@@ -200,7 +204,7 @@ const app = createApp({
       try {
         const headers = {};
         if (this.authToken) headers.Authorization = `Bearer ${this.authToken}`;
-        const res = await fetch('/api/orders', { headers });
+        const res = await fetch(apiUrl('/api/orders'), { headers });
         if (res.status === 401) {
           this.handleLogout();
           this.authError = 'Please sign in again to view your orders.';
@@ -218,7 +222,7 @@ const app = createApp({
       this.selectedRestaurant = restaurant;
       this.currentView = 'menu';
       try {
-        const res = await fetch(`/api/restaurants/${restaurant._id}/menu`);
+        const res = await fetch(apiUrl(`/api/restaurants/${restaurant._id}/menu`));
         const data = await res.json();
         this.menuItems = Array.isArray(data) ? data : [];
       } catch (err) {
@@ -269,7 +273,7 @@ const app = createApp({
       const grandTotal = this.cartTotal + 30 + Math.round(this.cartTotal * 0.05);
 
       try {
-        const res = await fetch('/api/orders', {
+        const res = await fetch(apiUrl('/api/orders'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -313,7 +317,7 @@ const app = createApp({
     async fetchAdminMenu() {
       if (!this.adminRestaurantId) return;
       try {
-        const res = await fetch(`/api/restaurants/${this.adminRestaurantId}/menu`, {
+        const res = await fetch(apiUrl(`/api/restaurants/${this.adminRestaurantId}/menu`), {
           headers: { Authorization: `Bearer ${this.authToken}` },
         });
         const data = await res.json();
@@ -326,7 +330,7 @@ const app = createApp({
     // Admin: Update order status
     async updateOrderStatus(orderId, newStatus) {
       try {
-        const res = await fetch(`/api/orders/${orderId}/status`, {
+        const res = await fetch(apiUrl(`/api/orders/${orderId}/status`), {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -348,7 +352,7 @@ const app = createApp({
       try {
         const headers = {};
         if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
-        const res = await fetch(`/api/menu/${dishId}/toggle`, { method: 'PATCH', headers });
+        const res = await fetch(apiUrl(`/api/menu/${dishId}/toggle`), { method: 'PATCH', headers });
         if (res.ok) {
           const updated = await res.json();
           this.adminMenuItems = this.adminMenuItems.map((d) => (d._id === dishId ? updated : d));
@@ -367,7 +371,7 @@ const app = createApp({
       try {
         const headers = {};
         if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
-        const res = await fetch(`/api/menu/${dishId}`, { method: 'DELETE', headers });
+        const res = await fetch(apiUrl(`/api/menu/${dishId}`), { method: 'DELETE', headers });
         if (res.ok) {
           this.adminMenuItems = this.adminMenuItems.filter((d) => d._id !== dishId);
         } else {
@@ -385,7 +389,7 @@ const app = createApp({
       try {
         const headers = { 'Content-Type': 'application/json' };
         if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
-        const res = await fetch(`/api/restaurants/${this.adminRestaurantId}/menu`, {
+        const res = await fetch(apiUrl(`/api/restaurants/${this.adminRestaurantId}/menu`), {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -454,7 +458,7 @@ const app = createApp({
       this.authError = '';
       this.authLoading = true;
       try {
-        const res = await fetch('/api/auth/login', {
+        const res = await fetch(apiUrl('/api/auth/login'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(this.loginForm),
@@ -477,7 +481,7 @@ const app = createApp({
       this.authError = '';
       this.authLoading = true;
       try {
-        const res = await fetch('/api/auth/register', {
+        const res = await fetch(apiUrl('/api/auth/register'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(this.registerForm),
@@ -497,7 +501,7 @@ const app = createApp({
     },
 
     handleLogout() {
-      fetch('/api/auth/logout', { method: 'POST' }).catch(() => { });
+      fetch(apiUrl('/api/auth/logout'), { method: 'POST' }).catch(() => { });
       this.currentUser = null;
       this.authToken = '';
       localStorage.removeItem('ninja_user');
