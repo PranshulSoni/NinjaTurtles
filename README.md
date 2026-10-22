@@ -18,12 +18,17 @@ Assignment/
 │       └── style.css  # Dedicated frontend styles & transitions
 │
 ├── backend/
-│   └── server.js      # Express backend, MongoDB Models, REST APIs
+│   └── server.js      # Express backend, Native MongoDB MongoClient REST APIs
 │
-├── package.json       # Dependencies (express, mongoose, cors)
-├── README.md          # Setup instructions
-└── VIVA_GUIDE.md      # Line-by-line explanation guide for your professor
+├── package.json       # Dependencies (express, mongodb, cors)
+└── README.md          # Setup instructions & documentation
 ```
+
+---
+
+## Live Deployment
+- **Live URL**: [https://ninjaturtles.onrender.com](https://ninjaturtles.onrender.com)
+- **API Health**: [https://ninjaturtles.onrender.com/api/health](https://ninjaturtles.onrender.com/api/health)
 
 ---
 
@@ -34,7 +39,7 @@ Assignment/
 | **Frontend** | Vue.js (100% pure JavaScript file `frontend/app.js`) |
 | **Styling** | Tailwind CSS & custom CSS (`frontend/css/style.css`) |
 | **Backend** | Node.js with Express JS (`backend/server.js`) |
-| **Database** | MongoDB with Mongoose (Strict Database) |
+| **Database** | MongoDB with Native MongoClient |
 
 ---
 
