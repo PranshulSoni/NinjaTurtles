@@ -111,9 +111,15 @@ createApp({
       });
     },
     adminRestaurantOrders() {
+      const targetId = (this.currentUser && this.currentUser.restaurantId) ? this.currentUser.restaurantId : this.adminSelectedRestaurantId;
       return this.orders.filter(
-        (o) => o.restaurantId === this.adminSelectedRestaurantId
+        (o) => o.restaurantId === targetId || String(o.restaurantId) === String(targetId)
       );
+    },
+    adminRestaurantName() {
+      if (this.currentUser && this.currentUser.restaurantName) return this.currentUser.restaurantName;
+      const r = this.restaurants.find((rest) => rest._id === this.adminSelectedRestaurantId);
+      return r ? r.name : 'Restaurant Partner';
     },
   },
 
@@ -125,6 +131,9 @@ createApp({
       if (savedUser && savedToken) {
         this.currentUser = JSON.parse(savedUser);
         this.authToken = savedToken;
+        if (this.currentUser.restaurantId) {
+          this.adminSelectedRestaurantId = this.currentUser.restaurantId;
+        }
         if (this.currentUser.name) {
           this.customer.name = this.currentUser.name;
           this.customer.phone = this.currentUser.phone || this.customer.phone;
@@ -174,8 +183,12 @@ createApp({
         const res = await fetch('/api/restaurants');
         const data = await res.json();
         this.restaurants = Array.isArray(data) ? data : [];
-        if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
+        if (this.currentUser && this.currentUser.restaurantId) {
+          this.adminSelectedRestaurantId = this.currentUser.restaurantId;
+        } else if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
           this.adminSelectedRestaurantId = this.restaurants[0]._id;
+        }
+        if (this.adminSelectedRestaurantId) {
           this.fetchAdminMenu();
         }
       } catch (err) {
@@ -427,7 +440,9 @@ createApp({
       // If Customer -> navigate to Order Food view
       if (user.role === 'admin') {
         this.currentView = 'restaurant-admin';
-        if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
+        if (user.restaurantId) {
+          this.adminSelectedRestaurantId = user.restaurantId;
+        } else if (this.restaurants.length > 0) {
           this.adminSelectedRestaurantId = this.restaurants[0]._id;
         }
         this.fetchAdminMenu();
@@ -487,6 +502,8 @@ createApp({
       fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
       this.currentUser = null;
       this.authToken = '';
+      this.adminSelectedRestaurantId = '';
+      this.adminMenuItems = [];
       localStorage.removeItem('ninja_user');
       localStorage.removeItem('ninja_token');
       this.currentView = 'login';
