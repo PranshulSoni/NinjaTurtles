@@ -1,6 +1,11 @@
-
+// public/app.js
+// Complete Vue.js Frontend Logic for Team Ninja Turtles Food Platform
+// 100% Pure Standard JavaScript with Vue 3 Options API
 
 const { createApp } = Vue;
+
+// Render Deployment Backend URL
+const API_BASE = 'https://ninjaturtles.onrender.com';
 
 createApp({
   data() {
@@ -109,9 +114,15 @@ createApp({
       });
     },
     adminRestaurantOrders() {
+      const targetId = (this.currentUser && this.currentUser.restaurantId) ? this.currentUser.restaurantId : this.adminSelectedRestaurantId;
       return this.orders.filter(
-        (o) => o.restaurantId === this.adminSelectedRestaurantId
+        (o) => o.restaurantId === targetId || String(o.restaurantId) === String(targetId)
       );
+    },
+    adminRestaurantName() {
+      if (this.currentUser && this.currentUser.restaurantName) return this.currentUser.restaurantName;
+      const r = this.restaurants.find((rest) => rest._id === this.adminSelectedRestaurantId);
+      return r ? r.name : 'Restaurant Partner';
     },
   },
 
@@ -123,6 +134,9 @@ createApp({
       if (savedUser && savedToken) {
         this.currentUser = JSON.parse(savedUser);
         this.authToken = savedToken;
+        if (this.currentUser.restaurantId) {
+          this.adminSelectedRestaurantId = this.currentUser.restaurantId;
+        }
         if (this.currentUser.name) {
           this.customer.name = this.currentUser.name;
           this.customer.phone = this.currentUser.phone || this.customer.phone;
@@ -159,7 +173,7 @@ createApp({
     // API: Fetch Restaurants
     async checkDbHealth() {
       try {
-        const res = await fetch('/api/health');
+        const res = await fetch(`${API_BASE}/api/health`);
         const data = await res.json();
         this.isDbConnected = !!data.dbConnected;
         if (data.database) this.dbName = data.database;
@@ -169,11 +183,15 @@ createApp({
     },
     async fetchRestaurants() {
       try {
-        const res = await fetch('/api/restaurants');
+        const res = await fetch(`${API_BASE}/api/restaurants`);
         const data = await res.json();
         this.restaurants = Array.isArray(data) ? data : [];
-        if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
+        if (this.currentUser && this.currentUser.restaurantId) {
+          this.adminSelectedRestaurantId = this.currentUser.restaurantId;
+        } else if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
           this.adminSelectedRestaurantId = this.restaurants[0]._id;
+        }
+        if (this.adminSelectedRestaurantId) {
           this.fetchAdminMenu();
         }
       } catch (err) {
@@ -188,7 +206,7 @@ createApp({
         return;
       }
       try {
-        let url = '/api/orders';
+        let url = `${API_BASE}/api/orders`;
         if (this.currentUser.role === 'customer') {
           url += `?userId=${this.currentUser.id || this.currentUser._id}`;
         }
@@ -205,7 +223,7 @@ createApp({
       this.selectedRestaurant = restaurant;
       this.currentView = 'menu';
       try {
-        const res = await fetch(`/api/restaurants/${restaurant._id}/menu`);
+        const res = await fetch(`${API_BASE}/api/restaurants/${restaurant._id}/menu`);
         const data = await res.json();
         this.menuItems = Array.isArray(data) ? data : [];
       } catch (err) {
@@ -256,7 +274,7 @@ createApp({
       const grandTotal = this.cartTotal + 30 + Math.round(this.cartTotal * 0.05);
 
       try {
-        const res = await fetch('/api/orders', {
+        const res = await fetch(`${API_BASE}/api/orders`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -300,7 +318,7 @@ createApp({
     async fetchAdminMenu() {
       if (!this.adminSelectedRestaurantId) return;
       try {
-        const res = await fetch(`/api/restaurants/${this.adminSelectedRestaurantId}/menu`);
+        const res = await fetch(`${API_BASE}/api/restaurants/${this.adminSelectedRestaurantId}/menu`);
         const data = await res.json();
         this.adminMenuItems = Array.isArray(data) ? data : [];
       } catch (err) {
@@ -311,7 +329,7 @@ createApp({
     // Admin: Update order status
     async updateOrderStatus(orderId, newStatus) {
       try {
-        const res = await fetch(`/api/orders/${orderId}/status`, {
+        const res = await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus }),
@@ -330,7 +348,7 @@ createApp({
       try {
         const headers = {};
         if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
-        const res = await fetch(`/api/menu/${dishId}/toggle`, { method: 'PATCH', headers });
+        const res = await fetch(`${API_BASE}/api/menu/${dishId}/toggle`, { method: 'PATCH', headers });
         if (res.ok) {
           const updated = await res.json();
           this.adminMenuItems = this.adminMenuItems.map((d) => (d._id === dishId ? updated : d));
@@ -349,7 +367,7 @@ createApp({
       try {
         const headers = {};
         if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
-        const res = await fetch(`/api/menu/${dishId}`, { method: 'DELETE', headers });
+        const res = await fetch(`${API_BASE}/api/menu/${dishId}`, { method: 'DELETE', headers });
         if (res.ok) {
           this.adminMenuItems = this.adminMenuItems.filter((d) => d._id !== dishId);
         } else {
@@ -367,7 +385,7 @@ createApp({
       try {
         const headers = { 'Content-Type': 'application/json' };
         if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
-        const res = await fetch(`/api/restaurants/${this.adminSelectedRestaurantId}/menu`, {
+        const res = await fetch(`${API_BASE}/api/restaurants/${this.adminSelectedRestaurantId}/menu`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -425,7 +443,9 @@ createApp({
       // If Customer -> navigate to Order Food view
       if (user.role === 'admin') {
         this.currentView = 'restaurant-admin';
-        if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
+        if (user.restaurantId) {
+          this.adminSelectedRestaurantId = user.restaurantId;
+        } else if (this.restaurants.length > 0) {
           this.adminSelectedRestaurantId = this.restaurants[0]._id;
         }
         this.fetchAdminMenu();
@@ -439,7 +459,7 @@ createApp({
       this.authError = '';
       this.authLoading = true;
       try {
-        const res = await fetch('/api/auth/login', {
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(this.loginForm),
@@ -462,7 +482,7 @@ createApp({
       this.authError = '';
       this.authLoading = true;
       try {
-        const res = await fetch('/api/auth/register', {
+        const res = await fetch(`${API_BASE}/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(this.registerForm),
@@ -482,9 +502,11 @@ createApp({
     },
 
     handleLogout() {
-      fetch('/api/auth/logout', { method: 'POST' }).catch(() => { });
+      fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' }).catch(() => {});
       this.currentUser = null;
       this.authToken = '';
+      this.adminSelectedRestaurantId = '';
+      this.adminMenuItems = [];
       localStorage.removeItem('ninja_user');
       localStorage.removeItem('ninja_token');
       this.currentView = 'login';
