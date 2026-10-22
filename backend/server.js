@@ -6,10 +6,12 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/food_delivery_db';
+const AUTH_SECRET = process.env.AUTH_SECRET || process.env.MONGO_URI || 'local-development-only-secret';
 const frontendDir = path.join(__dirname, '..', 'frontend');
 
 // 1. Middlewares
@@ -49,15 +51,53 @@ function byId(id) {
 
 // Helper: Token Generator
 function generateToken(user) {
-  return Buffer.from(
-    JSON.stringify({
+  const payload = Buffer.from(JSON.stringify({
       _id: user._id,
       id: user._id,
-      role: user.role,
       email: user.email,
-      restaurantId: user.restaurantId,
-    })
-  ).toString('base64');
+    })).toString('base64url');
+  const signature = crypto.createHmac('sha256', AUTH_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+async function getAuthenticatedUser(req) {
+  const authorization = req.get('Authorization') || '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+
+  const [payload, signature] = match[1].split('.');
+  if (!payload || !signature) return null;
+
+  const expectedSignature = crypto.createHmac('sha256', AUTH_SECRET).update(payload).digest();
+  let providedSignature;
+  try {
+    providedSignature = Buffer.from(signature, 'base64url');
+  } catch (err) {
+    return null;
+  }
+  if (providedSignature.length !== expectedSignature.length ||
+      !crypto.timingSafeEqual(providedSignature, expectedSignature)) return null;
+
+  try {
+    const tokenData = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    const userId = toObjectId(tokenData.id || tokenData._id);
+    if (!userId) return null;
+    return await usersCol.findOne({ _id: userId });
+  } catch (err) {
+    return null;
+  }
+}
+
+function restaurantIdFilter(restaurantId) {
+  const value = String(restaurantId);
+  const objectId = toObjectId(value);
+  if (objectId) return { $or: [{ restaurantId: objectId }, { restaurantId: value }] };
+  return { restaurantId: value };
+}
+
+function userOwnsRestaurant(user, restaurantId) {
+  return user?.role === 'admin' && user.restaurantId &&
+    String(user.restaurantId) === String(restaurantId);
 }
 
 // Connect to MongoDB and initialize collections
@@ -152,6 +192,8 @@ app.post('/api/auth/register', async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
+        restaurantId: newUser.restaurantId,
+        restaurantName: newUser.restaurantName,
         phone: newUser.phone,
         address: newUser.address,
       },
@@ -175,6 +217,15 @@ app.get('/api/restaurants', async (req, res) => {
 
 app.get('/api/restaurants/:id/menu', async (req, res) => {
   try {
+    const authorization = req.get('Authorization');
+    if (authorization) {
+      const user = await getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ error: 'Please sign in again.' });
+      if (user.role === 'admin' && !userOwnsRestaurant(user, req.params.id)) {
+        return res.status(403).json({ error: 'This account can only access its restaurant menu.' });
+      }
+    }
+
     const restId = req.params.id;
     const oid = toObjectId(restId);
     let query;
@@ -194,6 +245,12 @@ app.get('/api/restaurants/:id/menu', async (req, res) => {
 
 app.post('/api/restaurants/:id/menu', async (req, res) => {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please sign in again.' });
+    if (!userOwnsRestaurant(user, req.params.id)) {
+      return res.status(403).json({ error: 'This account can only manage its restaurant menu.' });
+    }
+
     let isVeg = true;
     if (req.body.isVeg !== undefined) {
       isVeg = req.body.isVeg;
@@ -228,9 +285,14 @@ app.post('/api/restaurants/:id/menu', async (req, res) => {
 
 app.patch('/api/menu/:id/toggle', async (req, res) => {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please sign in again.' });
     const filter = byId(req.params.id);
     const item = await foodItemsCol.findOne(filter);
     if (!item) return res.status(404).json({ error: 'Dish not found' });
+    if (!userOwnsRestaurant(user, item.restaurantId)) {
+      return res.status(403).json({ error: 'This account can only manage its restaurant menu.' });
+    }
     const newAvailable = !item.isAvailable;
     await foodItemsCol.updateOne(filter, { $set: { isAvailable: newAvailable, updatedAt: new Date() } });
     item.isAvailable = newAvailable;
@@ -242,7 +304,15 @@ app.patch('/api/menu/:id/toggle', async (req, res) => {
 
 app.delete('/api/menu/:id', async (req, res) => {
   try {
-    const result = await foodItemsCol.deleteOne(byId(req.params.id));
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please sign in again.' });
+    const filter = byId(req.params.id);
+    const item = await foodItemsCol.findOne(filter);
+    if (!item) return res.status(404).json({ error: 'Dish not found' });
+    if (!userOwnsRestaurant(user, item.restaurantId)) {
+      return res.status(403).json({ error: 'This account can only manage its restaurant menu.' });
+    }
+    const result = await foodItemsCol.deleteOne(filter);
     if (result.deletedCount === 0) return res.status(404).json({ error: 'Dish not found' });
     res.json({ message: 'Deleted successfully' });
   } catch (err) {
@@ -253,6 +323,9 @@ app.delete('/api/menu/:id', async (req, res) => {
 // 5. Orders Endpoints (Filtered per User or Restaurant)
 app.get('/api/orders', async (req, res) => {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please sign in again.' });
+
     // Auto-advance: any order that has been "Out for Delivery" for >= 30 seconds becomes "Delivered"
     const cutoff = new Date(Date.now() - 30 * 1000);
     await ordersCol.updateMany(
@@ -260,16 +333,14 @@ app.get('/api/orders', async (req, res) => {
       { $set: { status: 'Delivered', updatedAt: new Date() } }
     );
 
-    const query = {};
-    if (req.query.userId) query.userId = req.query.userId;
-    if (req.query.restaurantId) {
-      const restId = req.query.restaurantId;
-      const oid = toObjectId(restId);
-      if (oid) {
-        query.$or = [{ restaurantId: oid }, { restaurantId: restId }];
-      } else {
-        query.restaurantId = restId;
+    let query;
+    if (user.role === 'admin') {
+      if (!user.restaurantId) {
+        return res.status(403).json({ error: 'This admin account is not assigned to a restaurant.' });
       }
+      query = restaurantIdFilter(user.restaurantId);
+    } else {
+      query = { userId: String(user._id) };
     }
 
     const orders = await ordersCol.find(query).sort({ createdAt: -1 }).toArray();
@@ -299,8 +370,20 @@ app.post('/api/orders', async (req, res) => {
 
 app.patch('/api/orders/:id/status', async (req, res) => {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please sign in again.' });
+    if (user.role !== 'admin' || !user.restaurantId) {
+      return res.status(403).json({ error: 'A restaurant admin account is required.' });
+    }
+
     const updateData = { status: req.body.status, updatedAt: new Date() };
     const filter = byId(req.params.id);
+    const existingOrder = await ordersCol.findOne(filter);
+    if (!existingOrder) return res.status(404).json({ error: 'Order not found' });
+    if (!userOwnsRestaurant(user, existingOrder.restaurantId)) {
+      return res.status(403).json({ error: 'This account can only update its restaurant orders.' });
+    }
+
     const result = await ordersCol.findOneAndUpdate(
       filter,
       { $set: updateData },
@@ -348,155 +431,139 @@ app.get('*', (req, res) => {
 // 7. Initial Database Seeder
 async function seedInitialData() {
   try {
-    const usersCount = await usersCol.countDocuments();
-    if (usersCount === 0) {
-      await usersCol.insertMany([
-        {
-          name: 'Rahul Sharma',
-          email: 'user@ninjafood.com',
-          password: 'user123',
-          role: 'customer',
-          phone: '9825123456',
-          address: 'Flat 402, Green Avenue, Ahmedabad',
-        },
-        {
-          name: 'Chef Vikram (Admin)',
-          email: 'admin@ninjafood.com',
-          password: 'admin123',
-          role: 'admin',
-          phone: '9876543210',
-          address: 'Ninja Kitchen HQ, Ahmedabad',
-        },
-      ]);
-    }
-
-    // Ensure dedicated restaurant admin accounts exist
-    const restList = await restaurantsCol.find().toArray();
-    if (restList.length > 0) {
-      for (const r of restList) {
-        let slug = 'admin';
-        if (r.name.toLowerCase().includes('burger')) slug = 'burgerking';
-        else if (r.name.toLowerCase().includes('lapinoz') || r.name.toLowerCase().includes('pino')) slug = 'lapinoz';
-        else if (r.name.toLowerCase().includes('biryani')) slug = 'biryani';
-        else slug = 'haldirams';
-        const adminEmail = `admin@${slug}.com`;
-        const exists = await usersCol.findOne({ email: adminEmail });
-        if (!exists) {
-          await usersCol.insertOne({
-            name: `${r.name} Admin`,
-            email: adminEmail,
-            password: 'admin123',
-            role: 'admin',
-            restaurantId: r._id,
-            restaurantName: r.name,
-            phone: '9876543210',
-            address: r.address || 'Kitchen Hub',
-          });
-        }
-      }
-
-      const zomatoAdmin = await usersCol.findOne({ email: 'admin@zomato.com' });
-      if (!zomatoAdmin) {
-        await usersCol.insertOne({
-          name: 'Zomato Platform Admin',
-          email: 'admin@zomato.com',
-          password: 'admin123',
-          role: 'admin',
-          restaurantId: restList[0]._id,
-          restaurantName: restList[0].name,
-          phone: '9876543210',
-          address: 'Zomato HQ',
-        });
-      }
-    }
-
+    // 1. Seed Restaurants & Dishes if empty
     const restCount = await restaurantsCol.countDocuments();
-    if (restCount > 0) return;
+    if (restCount === 0) {
+      const seedData = [
+        {
+          name: 'Burger King',
+          cuisine: 'Burgers, Fast Food',
+          rating: 4.3,
+          deliveryTime: '25-30 mins',
+          priceForTwo: 350,
+          address: 'Alpha One Mall, Vastrapur',
+          imageUrl: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=600',
+          dishes: [
+            { name: 'Crispy Veg Burger', price: 99, category: 'Main Course', isVeg: true, description: 'Crispy patty with special mayo' },
+            { name: 'Chicken Whopper', price: 199, category: 'Main Course', isVeg: false, description: 'Flame grilled chicken patty' },
+            { name: 'Peri Peri Fries', price: 119, category: 'Starters', isVeg: true, description: 'Golden fries with spicy seasoning' },
+          ],
+        },
+        {
+          name: "La Pino'z Pizza",
+          cuisine: 'Pizza, Italian',
+          rating: 4.4,
+          deliveryTime: '30-35 mins',
+          priceForTwo: 450,
+          address: 'Sindhu Bhavan Road',
+          imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600',
+          dishes: [
+            { name: 'Margherita Pizza', price: 199, category: 'Main Course', isVeg: true, description: 'Classic cheese and herb pizza' },
+            { name: 'Farm Villa Pizza', price: 289, category: 'Main Course', isVeg: true, description: 'Loaded with veggies and cheese' },
+            { name: 'Garlic Bread Stix', price: 129, category: 'Starters', isVeg: true, description: 'Baked bread with cheesy dip' },
+          ],
+        },
+        {
+          name: 'Behrouz Biryani',
+          cuisine: 'Biryani, Mughlai',
+          rating: 4.6,
+          deliveryTime: '35-40 mins',
+          priceForTwo: 600,
+          address: 'Drive In Road, Memnagar',
+          imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600',
+          dishes: [
+            { name: 'Subz-e-Biryani (Veg)', price: 295, category: 'Main Course', isVeg: true, description: 'Aromatic rice with vegetables' },
+            { name: 'Dum Gosht Mutton Biryani', price: 445, category: 'Main Course', isVeg: false, description: 'Slow cooked tender mutton' },
+            { name: 'Gulab Jamun (2 Pcs)', price: 85, category: 'Dessert', isVeg: true, description: 'Warm khoya dumplings' },
+          ],
+        },
+        {
+          name: 'Chai Sutta Bar',
+          cuisine: 'Snacks, Beverages',
+          rating: 4.2,
+          deliveryTime: '20-25 mins',
+          priceForTwo: 200,
+          address: 'SG Highway, Gota',
+          imageUrl: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600',
+          dishes: [
+            { name: 'Kulhad Masala Chai', price: 30, category: 'Beverages', isVeg: true, description: 'Spiced Indian tea in earthen cup' },
+            { name: 'Cheese Grilled Sandwich', price: 120, category: 'Snacks', isVeg: true, description: 'Toasted with veggies and molten cheese' },
+            { name: 'Bun Maska', price: 50, category: 'Snacks', isVeg: true, description: 'Fresh bun with creamy butter' },
+          ],
+        },
+      ];
 
-    const seedData = [
-      {
-        name: 'Burger King',
-        cuisine: 'Burgers, Fast Food',
-        rating: 4.3,
-        deliveryTime: '25-30 mins',
-        priceForTwo: 350,
-        address: 'Alpha One Mall, Vastrapur',
-        imageUrl: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=600',
-        dishes: [
-          { name: 'Crispy Veg Burger', price: 99, category: 'Main Course', isVeg: true, description: 'Crispy patty with special mayo' },
-          { name: 'Chicken Whopper', price: 199, category: 'Main Course', isVeg: false, description: 'Flame grilled chicken patty' },
-          { name: 'Peri Peri Fries', price: 119, category: 'Starters', isVeg: true, description: 'Golden fries with spicy seasoning' },
-        ],
-      },
-      {
-        name: "La Pino'z Pizza",
-        cuisine: 'Pizza, Italian',
-        rating: 4.4,
-        deliveryTime: '30-35 mins',
-        priceForTwo: 450,
-        address: 'Sindhu Bhavan Road',
-        imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600',
-        dishes: [
-          { name: 'Margherita Pizza', price: 199, category: 'Main Course', isVeg: true, description: 'Classic cheese and herb pizza' },
-          { name: 'Farm Villa Pizza', price: 289, category: 'Main Course', isVeg: true, description: 'Loaded with veggies and cheese' },
-          { name: 'Garlic Bread Stix', price: 129, category: 'Starters', isVeg: true, description: 'Baked bread with cheesy dip' },
-        ],
-      },
-      {
-        name: 'Behrouz Biryani',
-        cuisine: 'Biryani, Mughlai',
-        rating: 4.6,
-        deliveryTime: '35-40 mins',
-        priceForTwo: 600,
-        address: 'Drive In Road, Memnagar',
-        imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600',
-        dishes: [
-          { name: 'Subz-e-Biryani (Veg)', price: 295, category: 'Main Course', isVeg: true, description: 'Aromatic rice with vegetables' },
-          { name: 'Dum Gosht Mutton Biryani', price: 445, category: 'Main Course', isVeg: false, description: 'Slow cooked tender mutton' },
-          { name: 'Gulab Jamun (2 Pcs)', price: 85, category: 'Dessert', isVeg: true, description: 'Warm khoya dumplings' },
-        ],
-      },
-      {
-        name: 'Chai Sutta Bar',
-        cuisine: 'Snacks, Beverages',
-        rating: 4.2,
-        deliveryTime: '20-25 mins',
-        priceForTwo: 200,
-        address: 'SG Highway, Gota',
-        imageUrl: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600',
-        dishes: [
-          { name: 'Kulhad Masala Chai', price: 30, category: 'Beverages', isVeg: true, description: 'Spiced Indian tea in earthen cup' },
-          { name: 'Cheese Grilled Sandwich', price: 120, category: 'Snacks', isVeg: true, description: 'Toasted with veggies and molten cheese' },
-          { name: 'Bun Maska', price: 50, category: 'Snacks', isVeg: true, description: 'Fresh bun with creamy butter' },
-        ],
-      },
-    ];
-
-    for (const r of seedData) {
-      const restInsert = await restaurantsCol.insertOne({
-        name: r.name,
-        cuisine: r.cuisine,
-        rating: r.rating,
-        deliveryTime: r.deliveryTime,
-        priceForTwo: r.priceForTwo,
-        address: r.address,
-        imageUrl: r.imageUrl,
-      });
-      const restId = restInsert.insertedId;
-      const dishes = r.dishes.map((d) => {
-        let isVeg = true;
-        if (d.isVeg !== undefined) {
-          isVeg = d.isVeg;
-        }
-        return {
-          ...d,
-          restaurantId: restId,
+      for (const r of seedData) {
+        const restInsert = await restaurantsCol.insertOne({
+          name: r.name,
+          cuisine: r.cuisine,
+          rating: r.rating,
+          deliveryTime: r.deliveryTime,
+          priceForTwo: r.priceForTwo,
+          address: r.address,
           imageUrl: r.imageUrl,
-          isVeg,
-          isAvailable: true,
-        };
+        });
+        const restId = restInsert.insertedId;
+        const dishes = r.dishes.map((d) => {
+          let isVeg = true;
+          if (d.isVeg !== undefined) {
+            isVeg = d.isVeg;
+          }
+          return {
+            ...d,
+            restaurantId: restId,
+            imageUrl: r.imageUrl,
+            isVeg,
+            isAvailable: true,
+          };
+        });
+        await foodItemsCol.insertMany(dishes);
+      }
+    }
+
+    // 2. Seed Customer Account
+    const customer = await usersCol.findOne({ email: 'user@ninjafood.com' });
+    if (!customer) {
+      await usersCol.insertOne({
+        name: 'Rahul Sharma',
+        email: 'user@ninjafood.com',
+        password: 'user123',
+        role: 'customer',
+        phone: '9825123456',
+        address: 'Flat 402, Green Avenue, Ahmedabad',
+        createdAt: new Date(),
       });
-      await foodItemsCol.insertMany(dishes);
+    }
+
+    // 3. Seed 4 Distinct Restaurant Admins (1 per restaurant)
+    const restList = await restaurantsCol.find().toArray();
+    for (const r of restList) {
+      let slug = 'admin';
+      if (r.name.toLowerCase().includes('burger')) slug = 'burgerking';
+      else if (r.name.toLowerCase().includes('pino')) slug = 'lapinoz';
+      else if (r.name.toLowerCase().includes('biryani')) slug = 'behrouz';
+      else slug = 'chaisutta';
+
+      const adminEmail = `admin@${slug}.com`;
+      const exists = await usersCol.findOne({ email: adminEmail });
+      if (!exists) {
+        await usersCol.insertOne({
+          name: `${r.name} Admin`,
+          email: adminEmail,
+          password: 'admin123',
+          role: 'admin',
+          restaurantId: r._id,
+          restaurantName: r.name,
+          phone: '9876543210',
+          address: r.address || 'Kitchen Hub',
+          createdAt: new Date(),
+        });
+      } else if (!exists.restaurantId) {
+        await usersCol.updateOne(
+          { _id: exists._id },
+          { $set: { restaurantId: r._id, restaurantName: r.name } }
+        );
+      }
     }
   } catch (err) {
     console.error('Seeding error:', err.message);
