@@ -38,7 +38,6 @@ const app = createApp({
       dbName: 'food_delivery_db',
 
       // Restaurant Partner Portal (Admin)
-      adminSelectedRestaurantId: '',
       adminTab: 'orders', // 'orders' or 'menu'
       adminMenuItems: [],
       newDish: {
@@ -108,10 +107,18 @@ const app = createApp({
         return matchesCat && matchesDiet;
       });
     },
-    adminRestaurantOrders() {
-      return this.orders.filter(
-        (o) => o.restaurantId === this.adminSelectedRestaurantId
+    adminRestaurantId() {
+      return this.currentUser?.restaurantId || '';
+    },
+    adminRestaurantName() {
+      if (this.currentUser?.restaurantName) return this.currentUser.restaurantName;
+      const restaurant = this.restaurants.find(
+        (r) => String(r._id) === String(this.adminRestaurantId)
       );
+      return restaurant?.name || 'Unassigned restaurant';
+    },
+    adminRestaurantOrders() {
+      return this.orders.filter((o) => String(o.restaurantId) === String(this.adminRestaurantId));
     },
   },
 
@@ -149,7 +156,11 @@ const app = createApp({
 
     // Auto-refresh orders every 5s if user is logged in and viewing orders or tracking active deliveries
     setInterval(() => {
-      if (this.currentUser && (this.currentView === 'orders' || this.activeOrdersCount > 0)) {
+      if (this.currentUser && (
+        this.currentView === 'orders' ||
+        this.activeOrdersCount > 0 ||
+        (this.currentView === 'restaurant-admin' && this.currentUser.role === 'admin')
+      )) {
         this.fetchOrders();
       }
     }, 5000);
@@ -172,8 +183,7 @@ const app = createApp({
         const res = await fetch('/api/restaurants');
         const data = await res.json();
         this.restaurants = Array.isArray(data) ? data : [];
-        if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
-          this.adminSelectedRestaurantId = this.restaurants[0]._id;
+        if (this.currentUser?.role === 'admin') {
           this.fetchAdminMenu();
         }
       } catch (err) {
@@ -188,11 +198,14 @@ const app = createApp({
         return;
       }
       try {
-        let url = '/api/orders';
-        if (this.currentUser.role === 'customer') {
-          url += `?userId=${this.currentUser.id || this.currentUser._id}`;
+        const headers = {};
+        if (this.authToken) headers.Authorization = `Bearer ${this.authToken}`;
+        const res = await fetch('/api/orders', { headers });
+        if (res.status === 401) {
+          this.handleLogout();
+          this.authError = 'Please sign in again to view your orders.';
+          return;
         }
-        const res = await fetch(url);
         const data = await res.json();
         this.orders = Array.isArray(data) ? data : [];
       } catch (err) {
@@ -298,9 +311,11 @@ const app = createApp({
 
     // Admin: Fetch menu for selected restaurant
     async fetchAdminMenu() {
-      if (!this.adminSelectedRestaurantId) return;
+      if (!this.adminRestaurantId) return;
       try {
-        const res = await fetch(`/api/restaurants/${this.adminSelectedRestaurantId}/menu`);
+        const res = await fetch(`/api/restaurants/${this.adminRestaurantId}/menu`, {
+          headers: { Authorization: `Bearer ${this.authToken}` },
+        });
         const data = await res.json();
         this.adminMenuItems = Array.isArray(data) ? data : [];
       } catch (err) {
@@ -313,7 +328,10 @@ const app = createApp({
       try {
         const res = await fetch(`/api/orders/${orderId}/status`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.authToken}`,
+          },
           body: JSON.stringify({ status: newStatus }),
         });
         if (res.ok) {
@@ -367,7 +385,7 @@ const app = createApp({
       try {
         const headers = { 'Content-Type': 'application/json' };
         if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
-        const res = await fetch(`/api/restaurants/${this.adminSelectedRestaurantId}/menu`, {
+        const res = await fetch(`/api/restaurants/${this.adminRestaurantId}/menu`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -425,9 +443,6 @@ const app = createApp({
       // If Customer -> navigate to Order Food view
       if (user.role === 'admin') {
         this.currentView = 'restaurant-admin';
-        if (this.restaurants.length > 0 && !this.adminSelectedRestaurantId) {
-          this.adminSelectedRestaurantId = this.restaurants[0]._id;
-        }
         this.fetchAdminMenu();
       } else {
         this.currentView = 'restaurants';
