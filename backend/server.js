@@ -167,7 +167,14 @@ app.get('/api/restaurants/:id/menu', async (req, res) => {
   try {
     const restId = req.params.id;
     const oid = toObjectId(restId);
-    const query = oid ? { $or: [{ restaurantId: oid }, { restaurantId: restId }] } : { restaurantId: restId };
+    let query;
+
+    if (oid) {
+      query = { $or: [{ restaurantId: oid }, { restaurantId: restId }] };
+    } else {
+      query = { restaurantId: restId };
+    }
+
     const items = await foodItemsCol.find(query).toArray();
     res.json(items);
   } catch (err) {
@@ -181,7 +188,11 @@ app.get('/api/fooditems', async (req, res) => {
     if (req.query.restaurantId) {
       const restId = req.query.restaurantId;
       const oid = toObjectId(restId);
-      query = oid ? { $or: [{ restaurantId: oid }, { restaurantId: restId }] } : { restaurantId: restId };
+      if (oid) {
+        query = { $or: [{ restaurantId: oid }, { restaurantId: restId }] };
+      } else {
+        query = { restaurantId: restId };
+      }
     }
     const items = await foodItemsCol.find(query).toArray();
     res.json(items);
@@ -265,7 +276,11 @@ app.get('/api/orders', async (req, res) => {
     if (req.query.restaurantId) {
       const restId = req.query.restaurantId;
       const oid = toObjectId(restId);
-      query.$or = oid ? [{ restaurantId: oid }, { restaurantId: restId }] : [{ restaurantId: restId }];
+      if (oid) {
+        query.$or = [{ restaurantId: oid }, { restaurantId: restId }];
+      } else {
+        query.restaurantId = restId;
+      }
     }
 
     const orders = await ordersCol.find(query).sort({ createdAt: -1 }).toArray();
